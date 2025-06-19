@@ -78,11 +78,13 @@ int main()
     // Crea il giocatore (Pac-Man)
     Player pac(120.f, startPos, tileSize);
 
-    // Genera tutti i pellet sulle celle libere
+    // Genera tutti i pellet sulle celle libere, ESCLUDENDO la ghost house centrale (righe 8-10, colonne 8-10)
     std::vector<Pellet> pellets;
     for (unsigned y = 0; y < mapSz.y; ++y) {
         for (unsigned x = 0; x < mapSz.x; ++x) {
-            if (!map.isWall(x,y)) {
+            // Escludi la ghost house centrale
+            bool inGhostHouse = (y >= 8 && y <= 10 && x >= 8 && x <= 10);
+            if (!map.isWall(x,y) && !inGhostHouse) {
                 sf::Vector2f pos{
                     x*float(tileSize.x)+tileSize.x/2.f,
                     y*float(tileSize.y)+tileSize.y/2.f
@@ -92,12 +94,12 @@ int main()
         }
     }
 
-    // Crea i fantasmi statici (posizioni e colori personalizzabili)
+    // Crea i fantasmi statici (posizionati nella ghost house)
     std::vector<Ghost> ghosts;
     ghosts.emplace_back(sf::Vector2f(9*tileSize.x+tileSize.x/2.f, 9*tileSize.y+tileSize.y/2.f), sf::Color::Red);
-    ghosts.emplace_back(sf::Vector2f(7*tileSize.x+tileSize.x/2.f, 9*tileSize.y+tileSize.y/2.f), sf::Color::Cyan);
-    ghosts.emplace_back(sf::Vector2f(11*tileSize.x+tileSize.x/2.f, 9*tileSize.y+tileSize.y/2.f), sf::Color(255,184,255));
-    ghosts.emplace_back(sf::Vector2f(9*tileSize.x+tileSize.x/2.f, 7*tileSize.y+tileSize.y/2.f), sf::Color(255,184,82));
+    ghosts.emplace_back(sf::Vector2f(8*tileSize.x+tileSize.x/2.f, 9*tileSize.y+tileSize.y/2.f), sf::Color::Cyan);
+    ghosts.emplace_back(sf::Vector2f(10*tileSize.x+tileSize.x/2.f, 9*tileSize.y+tileSize.y/2.f), sf::Color(255,184,255));
+    ghosts.emplace_back(sf::Vector2f(9*tileSize.x+tileSize.x/2.f, 8*tileSize.y+tileSize.y/2.f), sf::Color(255,184,82));
 
     // Game loop principale
     sf::Clock clock;
@@ -118,6 +120,17 @@ int main()
                 score->add(10);
                 it = pellets.erase(it);
             } else ++it;
+
+        // Collisione Pac-Man / Fantasmi
+        for (const auto& ghost : ghosts) {
+            float dist = (pac.getPosition() - ghost.getPosition()).x * (pac.getPosition() - ghost.getPosition()).x +
+                         (pac.getPosition() - ghost.getPosition()).y * (pac.getPosition() - ghost.getPosition()).y;
+            float minDist = 24.f * 24.f; // raggio Pac-Man + raggio Ghost (approssimato)
+            if (dist < minDist) {
+                MessageBoxA(NULL, "Game Over! Pac-Man ha incontrato un fantasma.", "Game Over", MB_OK|MB_ICONERROR);
+                window.close();
+            }
+        }
 
         // Rendering
         window.clear();

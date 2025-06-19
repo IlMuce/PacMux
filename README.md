@@ -42,7 +42,7 @@ L’eseguibile verrà generato in `build/Release/PacmanMVP.exe` e dovrà essere 
 - Raccogli tutti i pellet per terminare il livello.
 - Il punteggio aumenta di 10 punti per pellet.
 
-## Funzionalità della Release 1 (MVP)
+## Funzionalità della Release 1
 
 1. Lettura mappa da file ASCII (`assets/map1.txt`).
 2. Movimento tile-based fluido di Pac-Man tramite le frecce direzionali.
@@ -57,7 +57,7 @@ L’eseguibile verrà generato in `build/Release/PacmanMVP.exe` e dovrà essere 
 - Possibilità di testare facilmente il wrap-around grazie a corridoi e tunnel dedicati.
 - Codice pronto per l'estensione con nuove feature (fantasmi, power-up, ecc.).
 
-## Miglioramenti previsti (Release 3)
+## Funzionalità della Release 3
 
 - Aggiunta dei fantasmi statici sulla mappa.
 - Gestione collisione tra Pac-Man e i fantasmi (Game Over).

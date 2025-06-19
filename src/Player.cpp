@@ -82,6 +82,16 @@ void Player::update(float dt, const TileMap& map, const sf::Vector2u& tileSize) 
     int tx = int(newPos.x / tileSize.x);
     int ty = int(newPos.y / tileSize.y);
 
+    // --- Teletrasporto laterale (wrap-around) ---
+    // Se Pac-Man esce dal bordo sinistro o destro, riappare dall'altro lato
+    int mapWidth = int(map.getSize().x);
+    if (newPos.x < 0) {
+        newPos.x = mapWidth * tileSize.x - tileSize.x/2.f;
+    } else if (newPos.x > mapWidth * tileSize.x) {
+        newPos.x = tileSize.x/2.f;
+    }
+    tx = int(newPos.x / tileSize.x); // ricalcola la cella dopo il wrap
+
     // Se la cella è libera, muovi Pac-Man
     if (tx>=0 && ty>=0 && tx<int(map.getSize().x) && ty<int(map.getSize().y)
         && !map.isWall(tx, ty))

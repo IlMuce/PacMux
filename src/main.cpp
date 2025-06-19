@@ -1,5 +1,5 @@
 #include <SFML/Graphics.hpp>
-#include <Windows.h>          // GetModuleFileNameA, MessageBoxA
+#include <Windows.h>          // Per gestione path e messaggi di errore
 #include <filesystem>
 #include <vector>
 #include <memory>
@@ -14,7 +14,7 @@ int main()
 {
     namespace fs = std::filesystem;
 
-    // 1) Path dell’exe e degli asset
+    // Recupera la cartella dell'eseguibile e degli asset
     char buf[MAX_PATH];
     GetModuleFileNameA(NULL, buf, MAX_PATH);
     fs::path exeDir = fs::path(buf).parent_path();
@@ -22,7 +22,7 @@ int main()
     fs::path mapPath = assets / "map1.txt";
     fs::path fontPath = assets / "arial.ttf";
 
-    // 2) Verifica asset
+    // Verifica la presenza degli asset fondamentali
     if (!fs::exists(mapPath)) {
         MessageBoxA(NULL, ("Mappa non trovata:\n" + mapPath.string()).c_str(),
                     "Errore Pacman", MB_OK|MB_ICONERROR);
@@ -34,13 +34,13 @@ int main()
         return EXIT_FAILURE;
     }
 
-    // 3) Configura finestra
+    // Configura la finestra di gioco
     const sf::Vector2u tileSize{32,32};
     sf::VideoMode mode(sf::Vector2u{800,600}, 32);
     sf::RenderWindow window(mode, "Pacman Release 1");
     window.setFramerateLimit(60);
 
-    // 4) Carica mappa
+    // Carica la mappa dal file
     TileMap map;
     if (!map.load(mapPath.string(), tileSize)) {
         MessageBoxA(NULL, ("Errore caricamento mappa:\n"+mapPath.string()).c_str(),
@@ -49,7 +49,7 @@ int main()
     }
     auto mapSz = map.getSize();
 
-    // 5) Trova spawn: cerca 'P' o usa centro
+    // Trova la posizione di spawn di Pac-Man ('P') o usa il centro
     sf::Vector2f startPos{
         (mapSz.x * tileSize.x) / 2.f,
         (mapSz.y * tileSize.y) / 2.f
@@ -65,7 +65,7 @@ int main()
         }
     }
 
-    // 6) Carica font e Score
+    // Carica il font e inizializza il punteggio
     std::unique_ptr<Score> score;
     try {
         score = std::make_unique<Score>(fontPath.string());
@@ -74,10 +74,10 @@ int main()
         return EXIT_FAILURE;
     }
 
-    // 7) Crea Pac-Man
+    // Crea il giocatore (Pac-Man)
     Player pac(120.f, startPos, tileSize);
 
-    // 8) Genera pellet
+    // Genera tutti i pellet sulle celle libere
     std::vector<Pellet> pellets;
     for (unsigned y = 0; y < mapSz.y; ++y) {
         for (unsigned x = 0; x < mapSz.x; ++x) {
@@ -91,23 +91,27 @@ int main()
         }
     }
 
-    // 9) Game loop
+    // Game loop principale
     sf::Clock clock;
     while (window.isOpen()) {
         float dt = clock.restart().asSeconds();
 
+        // Gestione eventi finestra
         while (auto ev = window.pollEvent())
             if (ev->is<sf::Event::Closed>())
                 window.close();
 
+        // Aggiorna il giocatore
         pac.update(dt, map, tileSize);
 
+        // Controlla collisione con i pellet
         for (auto it = pellets.begin(); it != pellets.end(); )
             if (it->eaten(pac.getPosition())) {
                 score->add(10);
                 it = pellets.erase(it);
             } else ++it;
 
+        // Rendering
         window.clear();
         window.draw(map);
         window.draw(pac);

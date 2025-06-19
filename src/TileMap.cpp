@@ -1,5 +1,6 @@
 #include "TileMap.hpp"
 
+// Carica la mappa da file e genera le tile grafiche
 bool TileMap::load(const std::string& filename, const sf::Vector2u& tileSize) {
     std::ifstream file(filename);
     if (!file) return false;
@@ -17,6 +18,7 @@ bool TileMap::load(const std::string& filename, const sf::Vector2u& tileSize) {
     m_tiles.clear();
     m_tiles.reserve(m_size.x * m_size.y);
 
+    // Crea le tile grafiche in base ai dati della mappa
     for (unsigned y = 0; y < m_size.y; ++y) {
         for (unsigned x = 0; x < m_size.x; ++x) {
             sf::RectangleShape tile(
@@ -31,6 +33,7 @@ bool TileMap::load(const std::string& filename, const sf::Vector2u& tileSize) {
                     static_cast<float>(y * tileSize.y)
                 )
             );
+            // Colora di blu i muri ('1'), nero il resto
             tile.setFillColor(m_data[y][x] == '1'
                 ? sf::Color::Blue
                 : sf::Color::Black
@@ -41,6 +44,7 @@ bool TileMap::load(const std::string& filename, const sf::Vector2u& tileSize) {
     return true;
 }
 
+// Disegna la mappa sulla finestra
 void TileMap::draw(sf::RenderTarget& target, sf::RenderStates states) const {
     states.transform *= getTransform();
     for (const auto& tile : m_tiles)

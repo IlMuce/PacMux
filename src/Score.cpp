@@ -1,30 +1,31 @@
 #include "Score.hpp"
 
+// Costruttore: inizializza il punteggio e prepara il testo a schermo
 Score::Score(const std::string& fontFile)
-: m_score(0)
+    : m_score(0)
 {
-    // 1) Carica il font, lancia eccezione se fallisce
+    // Carica il font dal file, lancia eccezione se fallisce
     if (!m_font.openFromFile(fontFile))
         throw std::runtime_error("Cannot load font: " + fontFile);
 
-    // 2) Crea sf::Text con la firma SFML 3: (const sf::Font&, sf::String, unsigned int)
+    // Crea l'oggetto sf::Text con font, stringa iniziale e dimensione carattere
     m_text = std::make_unique<sf::Text>(
         m_font,
         sf::String("Score: 0"),
         24u
     );
-
-    // 3) Imposta stile e posizione
+    // Imposta colore e posizione del testo
     m_text->setFillColor(sf::Color::White);
     m_text->setPosition({ 10.f, 10.f });
 }
 
+// Aggiunge punti al punteggio e aggiorna il testo
 void Score::add(unsigned value) {
     m_score += value;
-    // Aggiorna la stringa del testo
     m_text->setString(sf::String("Score: " + std::to_string(m_score)));
 }
 
+// Disegna il punteggio sulla finestra
 void Score::draw(sf::RenderTarget& target) const {
     target.draw(*m_text);
 }

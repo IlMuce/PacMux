@@ -45,11 +45,18 @@ L’eseguibile verrà generato in `build/Release/PacmanMVP.exe` e dovrà essere 
 ## Funzionalità della Release 1 (MVP)
 
 1. Lettura mappa da file ASCII (`assets/map1.txt`).
-2. Movimento “a griglia” con svolte e collisioni corrette.
-3. Rimozione dei pellet e conteggio punteggio.
-4. Finestra e loop di gioco con 60 FPS.
+2. Movimento tile-based fluido di Pac-Man tramite le frecce direzionali.
+3. Raccolta automatica dei pellet e incremento del punteggio a schermo.
+4. Finestra di gioco con framerate fisso a 60 FPS.
+5. Gestione asset (font e mappa) automatica: basta la cartella `assets` accanto all'eseguibile.
 
-## Miglioramenti previsti (Release 2+)
+## Miglioramenti previsti (Release 2)
+
+- Teletrasporto ai bordi (gallerie laterali): Pac-Man che esce da un lato riappare dall'altro.
+- Miglioramento della gestione delle collisioni ai bordi.
+- Preparazione del codice per l'aggiunta dei fantasmi nelle release successive.
+
+## Miglioramenti futuri (Release 3+)
 
 - Menu iniziale e schermata "Game Over".
 - Salvataggio/lettura degli highscore.

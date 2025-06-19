@@ -9,6 +9,7 @@
 #include "Player.hpp"
 #include "Pellet.hpp"
 #include "Score.hpp"
+#include "Ghost.hpp"
 
 int main()
 {
@@ -91,6 +92,13 @@ int main()
         }
     }
 
+    // Crea i fantasmi statici (posizioni e colori personalizzabili)
+    std::vector<Ghost> ghosts;
+    ghosts.emplace_back(sf::Vector2f(9*tileSize.x+tileSize.x/2.f, 9*tileSize.y+tileSize.y/2.f), sf::Color::Red);
+    ghosts.emplace_back(sf::Vector2f(7*tileSize.x+tileSize.x/2.f, 9*tileSize.y+tileSize.y/2.f), sf::Color::Cyan);
+    ghosts.emplace_back(sf::Vector2f(11*tileSize.x+tileSize.x/2.f, 9*tileSize.y+tileSize.y/2.f), sf::Color(255,184,255));
+    ghosts.emplace_back(sf::Vector2f(9*tileSize.x+tileSize.x/2.f, 7*tileSize.y+tileSize.y/2.f), sf::Color(255,184,82));
+
     // Game loop principale
     sf::Clock clock;
     while (window.isOpen()) {
@@ -115,6 +123,7 @@ int main()
         window.clear();
         window.draw(map);
         window.draw(pac);
+        for (auto& g : ghosts) window.draw(g);
         for (auto& p : pellets) window.draw(p);
         score->draw(window);
         window.display();

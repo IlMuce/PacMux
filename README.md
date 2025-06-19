@@ -50,13 +50,20 @@ L’eseguibile verrà generato in `build/Release/PacmanMVP.exe` e dovrà essere 
 4. Finestra di gioco con framerate fisso a 60 FPS.
 5. Gestione asset (font e mappa) automatica: basta la cartella `assets` accanto all'eseguibile.
 
-## Miglioramenti previsti (Release 2)
+## Funzionalità della Release 2
 
-- Teletrasporto ai bordi (gallerie laterali): Pac-Man che esce da un lato riappare dall'altro.
-- Miglioramento della gestione delle collisioni ai bordi.
-- Preparazione del codice per l'aggiunta dei fantasmi nelle release successive.
+- Implementato il teletrasporto ai bordi (wrap-around): Pac-Man che esce da un lato o dall'alto/basso riappare dal lato opposto, come nei classici arcade.
+- Mappa più grande, simmetrica e ispirata ai vecchi Pac-Man, con tunnel orizzontali e verticali funzionanti.
+- Possibilità di testare facilmente il wrap-around grazie a corridoi e tunnel dedicati.
+- Codice pronto per l'estensione con nuove feature (fantasmi, power-up, ecc.).
 
-## Miglioramenti futuri (Release 3+)
+## Miglioramenti previsti (Release 3)
+
+- Aggiunta dei fantasmi statici sulla mappa.
+- Gestione collisione tra Pac-Man e i fantasmi (Game Over).
+- Visualizzazione dei fantasmi con colori diversi.
+
+## Miglioramenti futuri (Release 4+)
 
 - Menu iniziale e schermata "Game Over".
 - Salvataggio/lettura degli highscore.

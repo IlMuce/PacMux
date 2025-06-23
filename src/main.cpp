@@ -97,19 +97,46 @@ int main()
         }
     }
 
-    // Crea i fantasmi statici (posizionati nella ghost house)
+    // Crea i fantasmi mobili (Release 4: Blinky = rosso, altri per ora statici)
     std::vector<Ghost> ghosts;
-    ghosts.emplace_back(sf::Vector2f(9*tileSize.x+tileSize.x/2.f, 10*tileSize.y+tileSize.y/2.f), sf::Color::Red);
-    ghosts.emplace_back(sf::Vector2f(8*tileSize.x+tileSize.x/2.f, 9*tileSize.y+tileSize.y/2.f), sf::Color::Cyan);
-    ghosts.emplace_back(sf::Vector2f(10*tileSize.x+tileSize.x/2.f, 9*tileSize.y+tileSize.y/2.f), sf::Color(255,184,255));
-    ghosts.emplace_back(sf::Vector2f(9*tileSize.x+tileSize.x/2.f, 8*tileSize.y+tileSize.y/2.f), sf::Color(255,184,82));
+    const std::vector<sf::Vector2f> ghostStartPos = {
+        sf::Vector2f(9*tileSize.x+tileSize.x/2.f, 10*tileSize.y+tileSize.y/2.f), // Blinky
+        sf::Vector2f(8*tileSize.x+tileSize.x/2.f, 9*tileSize.y+tileSize.y/2.f), // Inky
+        sf::Vector2f(10*tileSize.x+tileSize.x/2.f, 9*tileSize.y+tileSize.y/2.f), // Pinky
+        sf::Vector2f(9*tileSize.x+tileSize.x/2.f, 8*tileSize.y+tileSize.y/2.f)   // Clyde
+    };
+    ghosts.emplace_back(ghostStartPos[0], sf::Color::Red, 12.f, Ghost::Type::Blinky);
+    ghosts.emplace_back(ghostStartPos[1], sf::Color::Cyan, 12.f, Ghost::Type::Inky);
+    ghosts.emplace_back(ghostStartPos[2], sf::Color(255,184,255), 12.f, Ghost::Type::Pinky);
+    ghosts.emplace_back(ghostStartPos[3], sf::Color(255,184,82), 12.f, Ghost::Type::Clyde);
+
+    // --- TIMER MODALITÀ GHOSTS ---
+    enum class GhostMode { Scatter, Chase };
+    GhostMode ghostMode = GhostMode::Scatter;
+    float modeTimer = 0.f;
+    int modePhase = 0;
+    // Tabella classica: scatter/chase (in secondi)
+    const std::vector<float> scatterChaseTimes = {
+        7.f, 20.f, 7.f, 20.f, 5.f, 20.f, 5.f, -1.f // -1 = chase infinito
+    };
+    bool modeJustChanged = false;
 
     // Game loop principale
     sf::Clock clock;
     bool gameOver = false;
     while (window.isOpen()) {
         float dt = clock.restart().asSeconds();
-
+        // --- Modalità ghosts ---
+        modeJustChanged = false;
+        if (modePhase < (int)scatterChaseTimes.size() && scatterChaseTimes[modePhase] > 0.f) {
+            modeTimer += dt;
+            if (modeTimer >= scatterChaseTimes[modePhase]) {
+                modeTimer = 0.f;
+                modePhase++;
+                ghostMode = (ghostMode == GhostMode::Scatter) ? GhostMode::Chase : GhostMode::Scatter;
+                modeJustChanged = true;
+            }
+        }
         // Gestione eventi finestra
         while (auto ev = window.pollEvent())
             if (ev->is<sf::Event::Closed>())
@@ -118,6 +145,19 @@ int main()
         if (!gameOver) {
             // Aggiorna il giocatore
             pac.update(dt, map, tileSize);
+
+            // Aggiorna i fantasmi (solo Blinky si muove per ora)
+            for (auto& g : ghosts) {
+                if (g.getType() == Ghost::Type::Blinky) {
+                    Ghost::Mode m = (ghostMode == GhostMode::Scatter) ? Ghost::Mode::Scatter : Ghost::Mode::Chase;
+                    g.update(dt, map, tileSize, pac.getPosition(), m);
+                    // Reverse solo al cambio modalità
+                    if (modeJustChanged) {
+                        g.setDirection(-g.getDirection());
+                    }
+                }
+                // Gli altri: logica da aggiungere
+            }
 
             // Controlla collisione con i pellet
             for (auto it = pellets.begin(); it != pellets.end(); )
@@ -145,6 +185,10 @@ int main()
                         }
                     }
                 }
+                // Reset posizione fantasmi
+                for (size_t i = 0; i < ghosts.size(); ++i) {
+                    ghosts[i].setPosition(ghostStartPos[i]);
+                }
                 gameOver = true;
             }
 
@@ -155,7 +199,6 @@ int main()
                 float minDist = 24.f * 24.f; // raggio Pac-Man + raggio Ghost (approssimato)
                 if (dist < minDist) {
                     MessageBoxA(NULL, "Game Over! Pac-Man ha incontrato un fantasma. Premi OK per ripartire.", "Game Over", MB_OK|MB_ICONERROR);
-                    // Reset: riposiziona Pac-Man allo spawn, resetta punteggio e pellet
                     pac = Player(120.f, startPos, tileSize);
                     score = std::make_unique<Score>(fontPath.string());
                     pellets.clear();
@@ -171,6 +214,10 @@ int main()
                                 pellets.emplace_back(pos);
                             }
                         }
+                    }
+                    // Reset posizione fantasmi
+                    for (size_t i = 0; i < ghosts.size(); ++i) {
+                        ghosts[i].setPosition(ghostStartPos[i]);
                     }
                     gameOver = true;
                     break;
@@ -190,9 +237,10 @@ int main()
         // Rendering
         window.clear();
         window.draw(map);
-        window.draw(pac);
-        for (auto& g : ghosts) window.draw(g);
+        // Prima i pellet, poi i fantasmi, poi Pac-Man sopra tutto
         for (auto& p : pellets) window.draw(p);
+        for (auto& g : ghosts) window.draw(g);
+        window.draw(pac);
         score->draw(window);
         window.display();
     }

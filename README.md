@@ -59,9 +59,11 @@ L’eseguibile verrà generato in `build/Release/PacmanMVP.exe` e dovrà essere 
 
 ## Funzionalità della Release 3
 
-- Aggiunta dei fantasmi statici sulla mappa.
-- Gestione collisione tra Pac-Man e i fantasmi (Game Over).
-- Visualizzazione dei fantasmi con colori diversi.
+- Aggiunta dei fantasmi statici, posizionati nella ghost house centrale, ognuno con un colore diverso.
+- Gestione collisione tra Pac-Man e i fantasmi: se avviene, viene mostrato un messaggio di Game Over e la partita si resetta (Pac-Man torna allo spawn, punteggio e pellet vengono azzerati).
+- Gestione della vittoria: se tutti i pellet vengono raccolti, viene mostrato un messaggio di vittoria e la partita si resetta.
+- I pellet non vengono generati nella ghost house né nella cella di spawn di Pac-Man.
+- Tutte le transizioni avvengono senza chiudere la finestra di gioco.
 
 ## Miglioramenti futuri (Release 4+)
 

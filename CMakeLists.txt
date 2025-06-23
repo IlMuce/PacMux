@@ -12,6 +12,7 @@ add_executable(${PROJECT_NAME}
     src/Player.cpp
     src/Pellet.cpp
     src/Score.cpp
+    src/Ghost.cpp
 )
 
 # Copia ricorsiva della cartella assets accanto all'exe

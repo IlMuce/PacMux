@@ -79,16 +79,19 @@ int main()
     Player pac(120.f, startPos, tileSize);
 
     // Genera tutti i pellet sulle celle libere, ESCLUDENDO la ghost house centrale (righe 8-10, colonne 8-10)
+    // e la cella di spawn di Pac-Man
     std::vector<Pellet> pellets;
     for (unsigned y = 0; y < mapSz.y; ++y) {
         for (unsigned x = 0; x < mapSz.x; ++x) {
             // Escludi la ghost house centrale
             bool inGhostHouse = (y >= 8 && y <= 10 && x >= 8 && x <= 10);
-            if (!map.isWall(x,y) && !inGhostHouse) {
-                sf::Vector2f pos{
-                    x*float(tileSize.x)+tileSize.x/2.f,
-                    y*float(tileSize.y)+tileSize.y/2.f
-                };
+            // Escludi la cella di spawn di Pac-Man
+            sf::Vector2f pos{
+                x*float(tileSize.x)+tileSize.x/2.f,
+                y*float(tileSize.y)+tileSize.y/2.f
+            };
+            bool isPacmanSpawn = (std::abs(pos.x - startPos.x) < 1e-2f && std::abs(pos.y - startPos.y) < 1e-2f);
+            if (!map.isWall(x,y) && !inGhostHouse && !isPacmanSpawn) {
                 pellets.emplace_back(pos);
             }
         }
@@ -96,13 +99,14 @@ int main()
 
     // Crea i fantasmi statici (posizionati nella ghost house)
     std::vector<Ghost> ghosts;
-    ghosts.emplace_back(sf::Vector2f(9*tileSize.x+tileSize.x/2.f, 9*tileSize.y+tileSize.y/2.f), sf::Color::Red);
+    ghosts.emplace_back(sf::Vector2f(9*tileSize.x+tileSize.x/2.f, 10*tileSize.y+tileSize.y/2.f), sf::Color::Red);
     ghosts.emplace_back(sf::Vector2f(8*tileSize.x+tileSize.x/2.f, 9*tileSize.y+tileSize.y/2.f), sf::Color::Cyan);
     ghosts.emplace_back(sf::Vector2f(10*tileSize.x+tileSize.x/2.f, 9*tileSize.y+tileSize.y/2.f), sf::Color(255,184,255));
     ghosts.emplace_back(sf::Vector2f(9*tileSize.x+tileSize.x/2.f, 8*tileSize.y+tileSize.y/2.f), sf::Color(255,184,82));
 
     // Game loop principale
     sf::Clock clock;
+    bool gameOver = false;
     while (window.isOpen()) {
         float dt = clock.restart().asSeconds();
 
@@ -111,24 +115,75 @@ int main()
             if (ev->is<sf::Event::Closed>())
                 window.close();
 
-        // Aggiorna il giocatore
-        pac.update(dt, map, tileSize);
+        if (!gameOver) {
+            // Aggiorna il giocatore
+            pac.update(dt, map, tileSize);
 
-        // Controlla collisione con i pellet
-        for (auto it = pellets.begin(); it != pellets.end(); )
-            if (it->eaten(pac.getPosition())) {
-                score->add(10);
-                it = pellets.erase(it);
-            } else ++it;
+            // Controlla collisione con i pellet
+            for (auto it = pellets.begin(); it != pellets.end(); )
+                if (it->eaten(pac.getPosition())) {
+                    score->add(10);
+                    it = pellets.erase(it);
+                } else ++it;
 
-        // Collisione Pac-Man / Fantasmi
-        for (const auto& ghost : ghosts) {
-            float dist = (pac.getPosition() - ghost.getPosition()).x * (pac.getPosition() - ghost.getPosition()).x +
-                         (pac.getPosition() - ghost.getPosition()).y * (pac.getPosition() - ghost.getPosition()).y;
-            float minDist = 24.f * 24.f; // raggio Pac-Man + raggio Ghost (approssimato)
-            if (dist < minDist) {
-                MessageBoxA(NULL, "Game Over! Pac-Man ha incontrato un fantasma.", "Game Over", MB_OK|MB_ICONERROR);
-                window.close();
+            // Se tutti i pellet sono stati raccolti, mostra messaggio e resetta
+            if (pellets.empty()) {
+                MessageBoxA(NULL, "Hai raccolto tutti i pellet! Premi OK per ripartire.", "You Win!", MB_OK|MB_ICONINFORMATION);
+                pac = Player(120.f, startPos, tileSize);
+                score = std::make_unique<Score>(fontPath.string());
+                pellets.clear();
+                for (unsigned y = 0; y < mapSz.y; ++y) {
+                    for (unsigned x = 0; x < mapSz.x; ++x) {
+                        bool inGhostHouse = (y >= 8 && y <= 10 && x >= 8 && x <= 10);
+                        sf::Vector2f pos{
+                            x*float(tileSize.x)+tileSize.x/2.f,
+                            y*float(tileSize.y)+tileSize.y/2.f
+                        };
+                        bool isPacmanSpawn = (std::abs(pos.x - startPos.x) < 1e-2f && std::abs(pos.y - startPos.y) < 1e-2f);
+                        if (!map.isWall(x,y) && !inGhostHouse && !isPacmanSpawn) {
+                            pellets.emplace_back(pos);
+                        }
+                    }
+                }
+                gameOver = true;
+            }
+
+            // Collisione Pac-Man / Fantasmi
+            for (const auto& ghost : ghosts) {
+                float dist = (pac.getPosition() - ghost.getPosition()).x * (pac.getPosition() - ghost.getPosition()).x +
+                             (pac.getPosition() - ghost.getPosition()).y * (pac.getPosition() - ghost.getPosition()).y;
+                float minDist = 24.f * 24.f; // raggio Pac-Man + raggio Ghost (approssimato)
+                if (dist < minDist) {
+                    MessageBoxA(NULL, "Game Over! Pac-Man ha incontrato un fantasma. Premi OK per ripartire.", "Game Over", MB_OK|MB_ICONERROR);
+                    // Reset: riposiziona Pac-Man allo spawn, resetta punteggio e pellet
+                    pac = Player(120.f, startPos, tileSize);
+                    score = std::make_unique<Score>(fontPath.string());
+                    pellets.clear();
+                    for (unsigned y = 0; y < mapSz.y; ++y) {
+                        for (unsigned x = 0; x < mapSz.x; ++x) {
+                            bool inGhostHouse = (y >= 8 && y <= 10 && x >= 8 && x <= 10);
+                            sf::Vector2f pos{
+                                x*float(tileSize.x)+tileSize.x/2.f,
+                                y*float(tileSize.y)+tileSize.y/2.f
+                            };
+                            bool isPacmanSpawn = (std::abs(pos.x - startPos.x) < 1e-2f && std::abs(pos.y - startPos.y) < 1e-2f);
+                            if (!map.isWall(x,y) && !inGhostHouse && !isPacmanSpawn) {
+                                pellets.emplace_back(pos);
+                            }
+                        }
+                    }
+                    gameOver = true;
+                    break;
+                }
+            }
+        }
+        // Dopo il reset, attendi che il giocatore prema una freccia per ripartire
+        if (gameOver) {
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::Left) ||
+                sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::Right) ||
+                sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::Up) ||
+                sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::Down)) {
+                gameOver = false;
             }
         }
 

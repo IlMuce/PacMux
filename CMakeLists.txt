@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(PacmanR2 LANGUAGES CXX)
+project(PacmanR3 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,12 +21,6 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         "${CMAKE_SOURCE_DIR}/assets"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>/assets"
 )
-
-# Dì a CMake che vogliamo un EXE di tipo GUI (subsystem=windows)
-# set_target_properties(${PROJECT_NAME}
-#    PROPERTIES
-#        WIN32_EXECUTABLE TRUE
-# )
 
 target_include_directories(${PROJECT_NAME}
     PRIVATE src

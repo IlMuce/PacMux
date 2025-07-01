@@ -33,15 +33,20 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize, c
             m_hasLeftGhostHouse = true;
         }
         
-        // Target sempre Pac-Man (solo chase)
-        sf::Vector2f target = pacmanPos;
-        std::vector<sf::Vector2f> dirs = {{-1,0},{1,0},{0,-1},{0,1}};
+        // Calcola il target basato sulla modalità e tipo di fantasma
+        sf::Vector2f target;
+        // Solo Chase mode per ora - Blinky insegue sempre direttamente Pac-Man
+        target = pacmanPos;
+        
+        std::vector<sf::Vector2f> dirs = {{0,-1},{-1,0},{0,1},{1,0}}; // Up, Left, Down, Right (tie-breaking order)
         float minDist = 1e9f;
         sf::Vector2f bestDir = m_direction;
         bool foundValidDirection = false;
         
         for (auto& d : dirs) {
-            if (d + m_direction == sf::Vector2f(0,0) && m_direction != sf::Vector2f(0,0)) continue; // no reverse
+            // No reverse (evita di tornare indietro immediatamente)
+            if (d + m_direction == sf::Vector2f(0,0) && m_direction != sf::Vector2f(0,0)) continue;
+            
             int nx = sx + int(d.x);
             int ny = sy + int(d.y);
             if (nx < 0) nx = w-1; if (nx >= w) nx = 0;
@@ -52,7 +57,11 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize, c
             if (m_hasLeftGhostHouse && map.isGhostHouse(nx, ny)) continue;
             
             sf::Vector2f candPos{nx * float(tileSize.x) + tileSize.x/2.f, ny * float(tileSize.y) + tileSize.y/2.f};
-            float dist = std::abs(target.x - candPos.x) + std::abs(target.y - candPos.y);
+            // Usa distanza Euclidea per un targeting più preciso
+            float dx = target.x - candPos.x;
+            float dy = target.y - candPos.y;
+            float dist = std::sqrt(dx*dx + dy*dy);
+            
             if (dist < minDist) {
                 minDist = dist;
                 bestDir = d;

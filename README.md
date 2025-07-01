@@ -1,4 +1,4 @@
-# Pacman-SFML Release 1
+# Pacman-SFML Release 4
 
 Questo repository contiene l'MVP di un clone di Pac-Man realizzato con SFML 3.0 e CMake.
 
@@ -40,7 +40,9 @@ L’eseguibile verrà generato in `build/Release/PacmanMVP.exe` e dovrà essere 
 
 - **Freccia sinistra/destra/su/giù**: muovi Pac-Man lungo i corridoi a griglia.
 - Raccogli tutti i pellet per terminare il livello.
+- **Evita i fantasmi**: Se Blinky (rosso) ti tocca, la partita si resetta.
 - Il punteggio aumenta di 10 punti per pellet.
+- Usa i tunnel laterali per sfuggire ai fantasmi con il wrap-around.
 
 ## Funzionalità della Release 1
 
@@ -65,12 +67,42 @@ L’eseguibile verrà generato in `build/Release/PacmanMVP.exe` e dovrà essere 
 - I pellet non vengono generati nella ghost house né nella cella di spawn di Pac-Man.
 - Tutte le transizioni avvengono senza chiudere la finestra di gioco.
 
-## Miglioramenti futuri (Release 4+)
+## Funzionalità della Release 4 (COMPLETATA)
 
-- Menu iniziale e schermata "Game Over".
-- Salvataggio/lettura degli highscore.
-- Aggiunta di fantasmi con IA base.
-- Power-up (Super Pellet) e modalità frightened.
+- **Mappa fedele all'originale**: Aggiornata `map1.txt` con dimensioni e layout più vicini al Pac-Man classico.
+- **Tile speciali**: Introdotti tile '2' per spazi vuoti senza pellet (es: tunnel, aree speciali).
+- **Ghost House migliorata**: I fantasmi spawano nella casa centrale e non possono rientrarvi una volta usciti.
+- **Generazione pellet ottimizzata**: I pellet vengono creati solo sui tile '0', escludendo tile '2' e spawn di Pac-Man.
+- **AI di Blinky**: Implementato inseguimento diretto con targeting preciso, distanza euclidea e tie-breaking intelligente (Up>Left>Down>Right).
+- **Anti-reverse**: I fantasmi non possono invertire immediatamente la direzione per un comportamento più realistico.
+- **Wrap-around corretto**: Funzionamento perfetto del teletrasporto per Pac-Man e fantasmi.
+
+## Prossime Release (Roadmap)
+
+### Release 5: AI Complete
+- **Blinky**: Reintrodurre modalità scatter con timing corretto
+- **Pinky**: AI che punta 4 tile davanti a Pac-Man
+- **Inky**: AI collaborativa basata su Blinky e Pac-Man
+- **Clyde**: AI che alterna inseguimento e fuga
+- **State Machine**: Implementare correttamente Chase/Scatter con timing
+
+### Release 6: Power Pellets & Frightened Mode
+- Power Pellet negli angoli della mappa
+- Modalità Frightened: fantasmi blu e vulnerabili
+- Sistema di punteggi progressivi per fantasmi mangiati
+- Suoni di base (chomp, sirene, fantasmi mangiati)
+
+### Release 7: Levels & Progression
+- Sistema multi-livello con difficoltà crescente
+- Velocità variabili per Pac-Man e fantasmi
+- Bonus fruit intermittenti
+- Animazioni migliorate e sprite
+
+### Release 8: Polish & Features
+- Menu principale e pause
+- High score persistente
+- Effetti sonori completi
+- Animazioni di morte e transizioni
 
 ## Aggiungere nuove mappe
 

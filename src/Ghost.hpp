@@ -22,6 +22,14 @@ public:
 
 private:
     void draw(sf::RenderTarget& target, sf::RenderStates states) const override;
+    
+    // BFS semplice per Blinky - trova sempre il percorso ottimale
+    sf::Vector2f findPathToPacman(const sf::Vector2f& pacmanPos, const TileMap& map, const sf::Vector2u& tileSize);
+    
+    // Fallback greedy quando BFS non trova il percorso
+    sf::Vector2f greedyFallback(const sf::Vector2f& pacmanPos, const TileMap& map, const sf::Vector2u& tileSize, 
+                                int startX, int startY, int w, int h);
+    
     sf::CircleShape m_shape;
     sf::Vector2f m_direction; // direzione attuale
     sf::Vector2f m_target;    // bersaglio corrente (tile center)

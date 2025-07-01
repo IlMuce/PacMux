@@ -28,5 +28,6 @@ private:
     float m_speed;
     Type m_type;
     Mode m_mode;
+    bool m_hasLeftGhostHouse; // Traccia se il fantasma è uscito dalla ghost house
     sf::Vector2f m_drawPos;   // posizione grafica per effetto fluido
 };

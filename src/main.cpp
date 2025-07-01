@@ -4,6 +4,7 @@
 #include <vector>
 #include <memory>
 #include <string>
+#include <iostream>          // Per il log di debug
 
 #include "TileMap.hpp"
 #include "Player.hpp"
@@ -37,11 +38,6 @@ int main()
 
     // Configura la finestra di gioco
     const sf::Vector2u tileSize{32,32};
-    sf::VideoMode mode(sf::Vector2u{800,600}, 32);
-    sf::RenderWindow window(mode, "Pacman Release 1");
-    window.setFramerateLimit(60);
-
-    // Carica la mappa dal file
     TileMap map;
     if (!map.load(mapPath.string(), tileSize)) {
         MessageBoxA(NULL, ("Errore caricamento mappa:\n"+mapPath.string()).c_str(),
@@ -49,12 +45,22 @@ int main()
         return EXIT_FAILURE;
     }
     auto mapSz = map.getSize();
-
-    // Trova la posizione di spawn di Pac-Man ('P') o usa il centro
     sf::Vector2f startPos{
         (mapSz.x * tileSize.x) / 2.f,
         (mapSz.y * tileSize.y) / 2.f
     };
+    sf::VideoMode mode(sf::Vector2u{tileSize.x * mapSz.x, tileSize.y * mapSz.y}, 32);
+
+    // Wrap-around per Pac-Man: correggi posizione se esce dai bordi
+    if (startPos.x < 0) startPos.x += mapSz.x * tileSize.x;
+    if (startPos.x >= mapSz.x * tileSize.x) startPos.x -= mapSz.x * tileSize.x;
+    if (startPos.y < 0) startPos.y += mapSz.y * tileSize.y;
+    if (startPos.y >= mapSz.y * tileSize.y) startPos.y -= mapSz.y * tileSize.y;
+
+    sf::RenderWindow window(mode, "Pacman Release 1");
+    window.setFramerateLimit(60); // Ensure a consistent framerate
+
+    // Trova la posizione di spawn di Pac-Man ('P') o usa il centro
     for (unsigned y = 0; y < mapSz.y; ++y) {
         for (unsigned x = 0; x < mapSz.x; ++x) {
             if (map.getData()[y][x] == 'P') {
@@ -78,32 +84,31 @@ int main()
     // Crea il giocatore (Pac-Man)
     Player pac(120.f, startPos, tileSize);
 
-    // Genera tutti i pellet sulle celle libere, ESCLUDENDO la ghost house centrale (righe 8-10, colonne 8-10)
-    // e la cella di spawn di Pac-Man
+    // Genera tutti i pellet sulle celle libere, ESCLUDENDO tile '2' e la cella di spawn di Pac-Man
     std::vector<Pellet> pellets;
     for (unsigned y = 0; y < mapSz.y; ++y) {
         for (unsigned x = 0; x < mapSz.x; ++x) {
-            // Escludi la ghost house centrale
-            bool inGhostHouse = (y >= 8 && y <= 10 && x >= 8 && x <= 10);
+            char tile = map.getData()[y][x];
             // Escludi la cella di spawn di Pac-Man
             sf::Vector2f pos{
                 x*float(tileSize.x)+tileSize.x/2.f,
                 y*float(tileSize.y)+tileSize.y/2.f
             };
             bool isPacmanSpawn = (std::abs(pos.x - startPos.x) < 1e-2f && std::abs(pos.y - startPos.y) < 1e-2f);
-            if (!map.isWall(x,y) && !inGhostHouse && !isPacmanSpawn) {
+            // Genera pellet solo sui tile '0' (spazi vuoti) e non sui tile '1' (muri) o '2' (spazi vuoti senza pellet)
+            if (tile == '0' && !isPacmanSpawn) {
                 pellets.emplace_back(pos);
             }
         }
     }
 
-    // Crea i fantasmi mobili (Release 4: Blinky = rosso, altri per ora statici)
+    // Crea i fantasmi mobili - posizioni aggiornate per la nuova mappa
     std::vector<Ghost> ghosts;
     const std::vector<sf::Vector2f> ghostStartPos = {
-        sf::Vector2f(9*tileSize.x+tileSize.x/2.f, 10*tileSize.y+tileSize.y/2.f), // Blinky
-        sf::Vector2f(8*tileSize.x+tileSize.x/2.f, 9*tileSize.y+tileSize.y/2.f), // Inky
-        sf::Vector2f(10*tileSize.x+tileSize.x/2.f, 9*tileSize.y+tileSize.y/2.f), // Pinky
-        sf::Vector2f(9*tileSize.x+tileSize.x/2.f, 8*tileSize.y+tileSize.y/2.f)   // Clyde
+        sf::Vector2f(10*tileSize.x+tileSize.x/2.f, 8*tileSize.y+tileSize.y/2.f),  // Blinky (centro, riga 9)
+        sf::Vector2f(11*tileSize.x+tileSize.x/2.f, 10*tileSize.y+tileSize.y/2.f),  // Inky (sinistra, riga 11)
+        sf::Vector2f(10*tileSize.x+tileSize.x/2.f, 10*tileSize.y+tileSize.y/2.f), // Pinky (centro, riga 11) 
+        sf::Vector2f(9*tileSize.x+tileSize.x/2.f, 10*tileSize.y+tileSize.y/2.f)  // Clyde (destra, riga 11)
     };
     ghosts.emplace_back(ghostStartPos[0], sf::Color::Red, 12.f, Ghost::Type::Blinky);
     ghosts.emplace_back(ghostStartPos[1], sf::Color::Cyan, 12.f, Ghost::Type::Inky);
@@ -126,6 +131,7 @@ int main()
     bool gameOver = false;
     while (window.isOpen()) {
         float dt = clock.restart().asSeconds();
+
         // --- Modalità ghosts ---
         modeJustChanged = false;
         if (modePhase < (int)scatterChaseTimes.size() && scatterChaseTimes[modePhase] > 0.f) {
@@ -145,6 +151,23 @@ int main()
         if (!gameOver) {
             // Aggiorna il giocatore
             pac.update(dt, map, tileSize);
+
+            // Forza la posizione di Pac-Man sempre dentro i limiti della mappa dopo ogni update
+            sf::Vector2f pacPos = pac.getPosition();
+            float minX = tileSize.x / 2.f;
+            float minY = tileSize.y / 2.f;
+            float maxX = map.getSize().x * tileSize.x - tileSize.x / 2.f;
+            float maxY = map.getSize().y * tileSize.y - tileSize.y / 2.f;
+            if (pacPos.x < minX) pac.setPosition({minX, pacPos.y});
+            if (pacPos.x > maxX) pac.setPosition({maxX, pacPos.y});
+            if (pacPos.y < minY) pac.setPosition({pacPos.x, minY});
+            if (pacPos.y > maxY) pac.setPosition({pacPos.x, maxY});
+
+            // Wrap-around per Pac-Man: riallinea alla griglia dopo il teletrasporto
+            if (pacPos.x < minX) pac.setPosition({mapSz.x * tileSize.x - tileSize.x / 2.f, pacPos.y});
+            if (pacPos.x > maxX) pac.setPosition({tileSize.x / 2.f, pacPos.y});
+            if (pacPos.y < minY) pac.setPosition({pacPos.x, mapSz.y * tileSize.y - tileSize.y / 2.f});
+            if (pacPos.y > maxY) pac.setPosition({pacPos.x, tileSize.y / 2.f});
 
             // Aggiorna i fantasmi (solo Blinky si muove per ora)
             for (auto& g : ghosts) {
@@ -174,13 +197,13 @@ int main()
                 pellets.clear();
                 for (unsigned y = 0; y < mapSz.y; ++y) {
                     for (unsigned x = 0; x < mapSz.x; ++x) {
-                        bool inGhostHouse = (y >= 8 && y <= 10 && x >= 8 && x <= 10);
+                        char tile = map.getData()[y][x];
                         sf::Vector2f pos{
                             x*float(tileSize.x)+tileSize.x/2.f,
                             y*float(tileSize.y)+tileSize.y/2.f
                         };
                         bool isPacmanSpawn = (std::abs(pos.x - startPos.x) < 1e-2f && std::abs(pos.y - startPos.y) < 1e-2f);
-                        if (!map.isWall(x,y) && !inGhostHouse && !isPacmanSpawn) {
+                        if (tile == '0' && !isPacmanSpawn) {
                             pellets.emplace_back(pos);
                         }
                     }
@@ -204,13 +227,13 @@ int main()
                     pellets.clear();
                     for (unsigned y = 0; y < mapSz.y; ++y) {
                         for (unsigned x = 0; x < mapSz.x; ++x) {
-                            bool inGhostHouse = (y >= 8 && y <= 10 && x >= 8 && x <= 10);
+                            char tile = map.getData()[y][x];
                             sf::Vector2f pos{
                                 x*float(tileSize.x)+tileSize.x/2.f,
                                 y*float(tileSize.y)+tileSize.y/2.f
                             };
                             bool isPacmanSpawn = (std::abs(pos.x - startPos.x) < 1e-2f && std::abs(pos.y - startPos.y) < 1e-2f);
-                            if (!map.isWall(x,y) && !inGhostHouse && !isPacmanSpawn) {
+                            if (tile == '0' && !isPacmanSpawn) {
                                 pellets.emplace_back(pos);
                             }
                         }

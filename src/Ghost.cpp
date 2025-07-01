@@ -4,7 +4,7 @@
 #include <unordered_map>
 
 Ghost::Ghost(const sf::Vector2f& pos, sf::Color color, float radius, Type type)
-    : m_shape(radius), m_direction(0, -1), m_speed(90.f), m_type(type), m_mode(Mode::Chase), m_drawPos(pos)
+    : m_shape(radius), m_direction(0, -1), m_speed(90.f), m_type(type), m_mode(Mode::Chase), m_drawPos(pos), m_hasLeftGhostHouse(false)
 {
     m_shape.setFillColor(color);
     m_shape.setOrigin({radius, radius});
@@ -25,22 +25,21 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize, c
     int w = map.getSize().x, h = map.getSize().y;
     // Aggiorna direzione solo se centrato su una tile
     if (centered) {
-        static std::deque<std::pair<int,int>> lastTiles;
-        static constexpr int loopHistory = 6;
-        // Target in base alla modalità
-        sf::Vector2f target;
-        if (m_mode == Mode::Chase) {
-            target = pacmanPos;
-        } else {
-            target = { (w-1) * tileSize.x + tileSize.x/2.f, tileSize.y/2.f };
-        }
         int sx = int(std::round(cx));
         int sy = int(std::round(cy));
-        // --- GREEDY: direzione che avvicina di più al target, no reverse ---
+        
+        // Controlla se il fantasma è uscito dalla ghost house
+        if (!m_hasLeftGhostHouse && !map.isGhostHouse(sx, sy)) {
+            m_hasLeftGhostHouse = true;
+        }
+        
+        // Target sempre Pac-Man (solo chase)
+        sf::Vector2f target = pacmanPos;
         std::vector<sf::Vector2f> dirs = {{-1,0},{1,0},{0,-1},{0,1}};
         float minDist = 1e9f;
         sf::Vector2f bestDir = m_direction;
-        int bestNx = sx, bestNy = sy;
+        bool foundValidDirection = false;
+        
         for (auto& d : dirs) {
             if (d + m_direction == sf::Vector2f(0,0) && m_direction != sf::Vector2f(0,0)) continue; // no reverse
             int nx = sx + int(d.x);
@@ -48,68 +47,23 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize, c
             if (nx < 0) nx = w-1; if (nx >= w) nx = 0;
             if (ny < 0) ny = h-1; if (ny >= h) ny = 0;
             if (map.isWall(nx, ny)) continue;
+            
+            // IMPEDISCI COMPLETAMENTE il rientro nella ghost house una volta usciti
+            if (m_hasLeftGhostHouse && map.isGhostHouse(nx, ny)) continue;
+            
             sf::Vector2f candPos{nx * float(tileSize.x) + tileSize.x/2.f, ny * float(tileSize.y) + tileSize.y/2.f};
             float dist = std::abs(target.x - candPos.x) + std::abs(target.y - candPos.y);
             if (dist < minDist) {
                 minDist = dist;
                 bestDir = d;
-                bestNx = nx; bestNy = ny;
+                foundValidDirection = true;
             }
         }
-        // --- ANTI-LOOP: se la tile di destinazione greedy è tra le ultime visitate, usa BFS ---
-        bool loopDetected = false;
-        for (const auto& t : lastTiles) {
-            if (t.first == bestNx && t.second == bestNy) {
-                loopDetected = true;
-                break;
-            }
-        }
-        if (!loopDetected) {
+        
+        // Se non trova direzioni valide (es: bloccato), mantieni la direzione corrente
+        if (foundValidDirection) {
             m_direction = bestDir;
-        } else {
-            // --- BFS per trovare la prima mossa che porta fuori dal loop ---
-            int tx = int(std::round((target.x - tileSize.x/2.f) / tileSize.x));
-            int ty = int(std::round((target.y - tileSize.y/2.f) / tileSize.y));
-            std::queue<std::pair<int,int>> q;
-            std::unordered_map<int, std::pair<int,int>> parent;
-            q.push({sx,sy});
-            parent[sx + sy*w] = {-1,-1};
-            bool found = false;
-            while (!q.empty() && !found) {
-                auto [x,y] = q.front(); q.pop();
-                for (auto& d : dirs) {
-                    if (d + m_direction == sf::Vector2f(0,0) && m_direction != sf::Vector2f(0,0)) continue; // no reverse
-                    int nx = x + int(d.x), ny = y + int(d.y);
-                    if (nx < 0) nx = w-1; if (nx >= w) nx = 0;
-                    if (ny < 0) ny = h-1; if (ny >= h) ny = 0;
-                    if (map.isWall(nx,ny)) continue;
-                    int key = nx + ny*w;
-                    if (parent.count(key)) continue;
-                    parent[key] = {x,y};
-                    q.push({nx,ny});
-                    if (nx == tx && ny == ty) { found = true; break; }
-                }
-            }
-            // Ricostruisci la prima mossa
-            std::pair<int,int> cur = {tx,ty};
-            std::pair<int,int> prev = cur;
-            bool hasPath = false;
-            while (parent.count(cur.first + cur.second*w) && parent[cur.first + cur.second*w] != std::make_pair(sx,sy)) {
-                prev = cur;
-                cur = parent[cur.first + cur.second*w];
-                hasPath = true;
-            }
-            int dx = prev.first - sx, dy = prev.second - sy;
-            if (hasPath) {
-                m_direction = {float(dx), float(dy)};
-            } else {
-                m_direction = bestDir;
-            }
         }
-        // Aggiorna la history delle ultime tile visitate
-        if (lastTiles.empty() || lastTiles.back() != std::make_pair(sx,sy))
-            lastTiles.push_back({sx,sy});
-        if ((int)lastTiles.size() > loopHistory) lastTiles.pop_front();
         m_shape.setPosition(center);
     }
     // Movimento: solo se la prossima tile non è muro
@@ -119,7 +73,15 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize, c
     if (nextX >= w) nextX = 0;
     if (nextY < 0) nextY = h - 1;
     if (nextY >= h) nextY = 0;
-    if (m_direction != sf::Vector2f(0,0) && !map.isWall(nextX, nextY)) {
+    
+    // Controlla se il movimento è valido
+    bool canMove = !map.isWall(nextX, nextY);
+    // Se il fantasma è uscito dalla ghost house, non può rientrarvi
+    if (m_hasLeftGhostHouse && map.isGhostHouse(nextX, nextY)) {
+        canMove = false;
+    }
+    
+    if (m_direction != sf::Vector2f(0,0) && canMove) {
         sf::Vector2f dest{nextX * float(tileSize.x) + tileSize.x/2.f, nextY * float(tileSize.y) + tileSize.y/2.f};
         sf::Vector2f delta = dest - m_shape.getPosition();
         float step = m_speed * dt;
@@ -160,4 +122,5 @@ void Ghost::setPosition(const sf::Vector2f& pos) {
     m_shape.setPosition(pos);
     m_direction = {0, -1};
     m_drawPos = pos;
+    m_hasLeftGhostHouse = false; // Reset del flag quando il fantasma viene riposizionato
 }

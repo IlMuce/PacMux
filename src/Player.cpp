@@ -14,6 +14,8 @@ Player::Player(float speed, const sf::Vector2f& startPos, const sf::Vector2u& ti
     m_shape.setFillColor(sf::Color::Yellow);
     m_shape.setOrigin(sf::Vector2f(m_shape.getRadius(), m_shape.getRadius()));
     m_shape.setPosition(startPos);
+
+    m_logicalPosition = startPos; // Inizializza la posizione logica
 }
 
 // Aggiorna la posizione e la direzione di Pac-Man in base all'input e alle collisioni
@@ -122,6 +124,9 @@ void Player::update(float dt, const TileMap& map, const sf::Vector2u& tileSize) 
         }
         m_direction = {0.f,0.f};
     }
+
+    // Aggiorna la posizione logica con la posizione corrente
+    m_logicalPosition = m_shape.getPosition();
 }
 
 // Disegna Pac-Man sulla finestra

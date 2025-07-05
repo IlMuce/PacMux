@@ -13,6 +13,10 @@ add_executable(${PROJECT_NAME}
     src/Pellet.cpp
     src/Score.cpp
     src/Ghost.cpp
+    src/Blinky.cpp
+    src/Pinky.cpp
+    src/Inky.cpp
+    src/Clyde.cpp
 )
 
 # Copia ricorsiva della cartella assets accanto all'exe
@@ -23,7 +27,7 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 )
 
 target_include_directories(${PROJECT_NAME}
-    PRIVATE src
+    PRIVATE src include
 )
 
 target_link_libraries(${PROJECT_NAME}

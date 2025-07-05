@@ -10,7 +10,10 @@
 #include "Player.hpp"
 #include "Pellet.hpp"
 #include "Score.hpp"
-#include "Ghost.hpp"
+#include "Blinky.hpp"
+#include "Pinky.hpp"
+#include "Inky.hpp"
+#include "Clyde.hpp"
 
 int main()
 {
@@ -102,25 +105,26 @@ int main()
         }
     }
 
-    // Crea i fantasmi mobili - posizioni aggiornate per la nuova mappa
-    std::vector<Ghost> ghosts;
+    // Crea i fantasmi mobili - ora usando classi specifiche
+    std::vector<std::unique_ptr<Ghost>> ghosts;
     const std::vector<sf::Vector2f> ghostStartPos = {
         sf::Vector2f(10*tileSize.x+tileSize.x/2.f, 8*tileSize.y+tileSize.y/2.f),  // Blinky (centro, riga 9)
-        sf::Vector2f(11*tileSize.x+tileSize.x/2.f, 10*tileSize.y+tileSize.y/2.f),  // Inky (sinistra, riga 11)
         sf::Vector2f(10*tileSize.x+tileSize.x/2.f, 10*tileSize.y+tileSize.y/2.f), // Pinky (centro, riga 11) 
+        sf::Vector2f(11*tileSize.x+tileSize.x/2.f, 10*tileSize.y+tileSize.y/2.f),  // Inky (sinistra, riga 11)
         sf::Vector2f(9*tileSize.x+tileSize.x/2.f, 10*tileSize.y+tileSize.y/2.f)  // Clyde (destra, riga 11)
     };
-    ghosts.emplace_back(ghostStartPos[0], sf::Color::Red, 12.f, Ghost::Type::Blinky);
-    ghosts.emplace_back(ghostStartPos[1], sf::Color::Cyan, 12.f, Ghost::Type::Inky);
-    ghosts.emplace_back(ghostStartPos[2], sf::Color(255,184,255), 12.f, Ghost::Type::Pinky);
-    ghosts.emplace_back(ghostStartPos[3], sf::Color(255,184,82), 12.f, Ghost::Type::Clyde);
+    
+    ghosts.push_back(std::make_unique<Blinky>(ghostStartPos[0]));
+    ghosts.push_back(std::make_unique<Pinky>(ghostStartPos[1]));
+    ghosts.push_back(std::make_unique<Inky>(ghostStartPos[2]));
+    ghosts.push_back(std::make_unique<Clyde>(ghostStartPos[3]));
 
     // --- TIMER MODALITÀ GHOSTS ---
     enum class GhostMode { Scatter, Chase };
-    GhostMode ghostMode = GhostMode::Scatter;
+    GhostMode ghostMode = GhostMode::Chase; // INIZIA DIRETTAMENTE IN CHASE PER TEST
     float modeTimer = 0.f;
     int modePhase = 0;
-    // Tabella classica: scatter/chase (in secondi)
+    // Tabella classica: scatter/chase (in secondi) - DISABILITATA PER TEST
     const std::vector<float> scatterChaseTimes = {
         7.f, 20.f, 7.f, 20.f, 5.f, 20.f, 5.f, -1.f // -1 = chase infinito
     };
@@ -132,8 +136,10 @@ int main()
     while (window.isOpen()) {
         float dt = clock.restart().asSeconds();
 
-        // --- Modalità ghosts ---
+        // --- Modalità ghosts --- DISABILITATO PER TEST CHASE MODE
         modeJustChanged = false;
+        // Commentiamo temporaneamente il cambio automatico di modalità
+        /*
         if (modePhase < (int)scatterChaseTimes.size() && scatterChaseTimes[modePhase] > 0.f) {
             modeTimer += dt;
             if (modeTimer >= scatterChaseTimes[modePhase]) {
@@ -143,6 +149,7 @@ int main()
                 modeJustChanged = true;
             }
         }
+        */
         // Gestione eventi finestra
         while (auto ev = window.pollEvent())
             if (ev->is<sf::Event::Closed>())
@@ -169,17 +176,14 @@ int main()
             if (pacPos.y < minY) pac.setPosition({pacPos.x, mapSz.y * tileSize.y - tileSize.y / 2.f});
             if (pacPos.y > maxY) pac.setPosition({pacPos.x, tileSize.y / 2.f});
 
-            // Aggiorna i fantasmi (solo Blinky si muove per ora)
+            // Aggiorna i fantasmi con la nuova architettura
             for (auto& g : ghosts) {
-                if (g.getType() == Ghost::Type::Blinky) {
-                    Ghost::Mode m = (ghostMode == GhostMode::Scatter) ? Ghost::Mode::Scatter : Ghost::Mode::Chase;
-                    g.update(dt, map, tileSize, pac.getPosition(), m);
-                    // Reverse solo al cambio modalità
-                    if (modeJustChanged) {
-                        g.setDirection(-g.getDirection());
-                    }
-                }
-                // Gli altri: logica da aggiungere
+                Ghost::Mode m = (ghostMode == GhostMode::Scatter) ? Ghost::Mode::Scatter : Ghost::Mode::Chase;
+                g->update(dt, map, tileSize, pac.getPosition(), pac.getDirection(), m);
+                // TODO: Implementare reverse al cambio modalità se necessario
+                // if (modeJustChanged) {
+                //     g->setDirection(-g->getDirection());
+                // }
             }
 
             // Controlla collisione con i pellet
@@ -210,15 +214,15 @@ int main()
                 }
                 // Reset posizione fantasmi
                 for (size_t i = 0; i < ghosts.size(); ++i) {
-                    ghosts[i].setPosition(ghostStartPos[i]);
+                    ghosts[i]->setPosition(ghostStartPos[i]);
                 }
                 gameOver = true;
             }
 
             // Collisione Pac-Man / Fantasmi
             for (const auto& ghost : ghosts) {
-                float dist = (pac.getPosition() - ghost.getPosition()).x * (pac.getPosition() - ghost.getPosition()).x +
-                             (pac.getPosition() - ghost.getPosition()).y * (pac.getPosition() - ghost.getPosition()).y;
+                float dist = (pac.getPosition() - ghost->getPosition()).x * (pac.getPosition() - ghost->getPosition()).x +
+                             (pac.getPosition() - ghost->getPosition()).y * (pac.getPosition() - ghost->getPosition()).y;
                 float minDist = 24.f * 24.f; // raggio Pac-Man + raggio Ghost (approssimato)
                 if (dist < minDist) {
                     MessageBoxA(NULL, "Game Over! Pac-Man ha incontrato un fantasma. Premi OK per ripartire.", "Game Over", MB_OK|MB_ICONERROR);
@@ -240,7 +244,7 @@ int main()
                     }
                     // Reset posizione fantasmi
                     for (size_t i = 0; i < ghosts.size(); ++i) {
-                        ghosts[i].setPosition(ghostStartPos[i]);
+                        ghosts[i]->setPosition(ghostStartPos[i]);
                     }
                     gameOver = true;
                     break;
@@ -262,7 +266,7 @@ int main()
         window.draw(map);
         // Prima i pellet, poi i fantasmi, poi Pac-Man sopra tutto
         for (auto& p : pellets) window.draw(p);
-        for (auto& g : ghosts) window.draw(g);
+        for (auto& g : ghosts) window.draw(*g);
         window.draw(pac);
         score->draw(window);
         window.display();

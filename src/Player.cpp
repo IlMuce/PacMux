@@ -14,6 +14,8 @@ Player::Player(float speed, const sf::Vector2f& startPos, const sf::Vector2u& ti
     m_shape.setFillColor(sf::Color::Yellow);
     m_shape.setOrigin(sf::Vector2f(m_shape.getRadius(), m_shape.getRadius()));
     m_shape.setPosition(startPos);
+
+    m_logicalPosition = startPos; // Inizializza la posizione logica
 }
 
 // Aggiorna la posizione e la direzione di Pac-Man in base all'input e alle collisioni
@@ -68,7 +70,8 @@ void Player::update(float dt, const TileMap& map, const sf::Vector2u& tileSize) 
             int ny = int(cellY) + int(m_nextDirection.y);
             bool inBounds = nx>=0 && ny>=0
                          && nx<int(map.getSize().x) && ny<int(map.getSize().y);
-            if (inBounds && !map.isWall(nx,ny)) {
+            // Pac-Man non può entrare nella ghost house
+            if (inBounds && !map.isWall(nx,ny) && !map.isGhostHouse(nx,ny)) {
                 m_direction = m_nextDirection;
                 m_shape.setPosition(center); // riallinea
                 pos = center;
@@ -101,9 +104,9 @@ void Player::update(float dt, const TileMap& map, const sf::Vector2u& tileSize) 
     tx = int(newPos.x / tileSize.x); // ricalcola la cella dopo il wrap
     ty = int(newPos.y / tileSize.y);
 
-    // Se la cella è libera, muovi Pac-Man
+    // Se la cella è libera E NON è ghost house, muovi Pac-Man
     if (tx>=0 && ty>=0 && tx<int(map.getSize().x) && ty<int(map.getSize().y)
-        && !map.isWall(tx, ty))
+        && !map.isWall(tx, ty) && !map.isGhostHouse(tx, ty))
     {
         m_shape.setPosition(newPos);
     }
@@ -122,6 +125,9 @@ void Player::update(float dt, const TileMap& map, const sf::Vector2u& tileSize) 
         }
         m_direction = {0.f,0.f};
     }
+
+    // Aggiorna la posizione logica con la posizione corrente
+    m_logicalPosition = m_shape.getPosition();
 }
 
 // Disegna Pac-Man sulla finestra

@@ -1,4 +1,5 @@
 #include "TileMap.hpp"
+#include <iostream> // Include iostream for debug logs
 
 // Carica la mappa da file e genera le tile grafiche
 bool TileMap::load(const std::string& filename, const sf::Vector2u& tileSize) {
@@ -33,11 +34,14 @@ bool TileMap::load(const std::string& filename, const sf::Vector2u& tileSize) {
                     static_cast<float>(y * tileSize.y)
                 )
             );
-            // Colora di blu i muri ('1'), nero il resto
-            tile.setFillColor(m_data[y][x] == '1'
-                ? sf::Color::Blue
-                : sf::Color::Black
-            );
+            // Colora i muri ('1') di blu chiaro, la tile '2' di nero, il resto nero
+            if (m_data[y][x] == '1') {
+                tile.setFillColor(sf::Color(0, 120, 255)); // blu chiaro
+            } else if (m_data[y][x] == '2') {
+                tile.setFillColor(sf::Color::Black); // contorno nero
+            } else {
+                tile.setFillColor(sf::Color::Black); // corridoio
+            }
             m_tiles.push_back(tile);
         }
     }
@@ -47,6 +51,7 @@ bool TileMap::load(const std::string& filename, const sf::Vector2u& tileSize) {
 // Disegna la mappa sulla finestra
 void TileMap::draw(sf::RenderTarget& target, sf::RenderStates states) const {
     states.transform *= getTransform();
-    for (const auto& tile : m_tiles)
+    for (const auto& tile : m_tiles) {
         target.draw(tile, states);
+    }
 }

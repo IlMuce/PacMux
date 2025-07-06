@@ -10,6 +10,7 @@ public:
     void update(float dt, const TileMap& map, const sf::Vector2u& tileSize);
 
     sf::Vector2f getPosition() const { return m_shape.getPosition(); }
+    sf::Vector2f getDirection() const { return m_direction; }
 
     // Imposta la posizione di Pac-Man
     void setPosition(const sf::Vector2f& position) { 

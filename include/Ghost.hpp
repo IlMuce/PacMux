@@ -38,6 +38,9 @@ protected:
     virtual sf::Vector2f findPath(const sf::Vector2f& target, const TileMap& map, const sf::Vector2u& tileSize);
     bool canMove(const sf::Vector2f& direction, const TileMap& map, const sf::Vector2u& tileSize);
     
+    // Trova la porta di uscita della ghost house (prima cella non ghost house sopra la posizione attuale)
+    sf::Vector2f getGhostHouseExit(const TileMap& map, const sf::Vector2u& tileSize) const;
+
     sf::CircleShape m_shape;
     sf::Vector2f m_direction;
     sf::Vector2f m_target;

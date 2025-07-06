@@ -177,13 +177,17 @@ int main()
             if (pacPos.y > maxY) pac.setPosition({pacPos.x, tileSize.y / 2.f});
 
             // Aggiorna i fantasmi con la nuova architettura
-            for (auto& g : ghosts) {
+            for (size_t i = 0; i < ghosts.size(); ++i) {
                 Ghost::Mode m = (ghostMode == GhostMode::Scatter) ? Ghost::Mode::Scatter : Ghost::Mode::Chase;
-                g->update(dt, map, tileSize, pac.getPosition(), pac.getDirection(), m);
-                // TODO: Implementare reverse al cambio modalità se necessario
-                // if (modeJustChanged) {
-                //     g->setDirection(-g->getDirection());
-                // }
+                // Blinky = 0, Pinky = 1, Inky = 2, Clyde = 3
+                if (auto* inky = dynamic_cast<Inky*>(ghosts[i].get())) {
+                    // Passa la posizione di Blinky a Inky
+                    if (ghosts.size() > 0) {
+                        inky->update(dt, map, tileSize, pac.getPosition(), pac.getDirection(), m, ghosts[0]->getPosition());
+                    }
+                } else {
+                    ghosts[i]->update(dt, map, tileSize, pac.getPosition(), pac.getDirection(), m);
+                }
             }
 
             // Controlla collisione con i pellet

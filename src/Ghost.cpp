@@ -21,12 +21,6 @@ Ghost::Ghost(const sf::Vector2f& pos, sf::Color color, float radius, Type type)
 
 void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize, 
                   const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, Mode mode) {
-    // Solo Blinky e Pinky si muovono per ora
-    if (m_type == Type::Inky || m_type == Type::Clyde) {
-        m_drawPos = m_shape.getPosition();
-        return;
-    }
-    
     m_mode = mode;
     sf::Vector2f pos = m_shape.getPosition();
     float cx = std::round((pos.x - tileSize.x/2.f) / tileSize.x);
@@ -37,21 +31,24 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
     };
     bool centered = (std::abs(pos.x - center.x) < 2.0f && std::abs(pos.y - center.y) < 2.0f);
     int w = map.getSize().x, h = map.getSize().y;
-    
-    // Aggiorna direzione solo se centrato sulla cella o bloccato
+
     bool shouldUpdateDirection = centered && 
                                ((m_direction.x == 0 && m_direction.y == -1) ||
                                !canMove(m_direction, map, tileSize));
-                                
     if (shouldUpdateDirection) {
         int sx = int(std::round(cx));
         int sy = int(std::round(cy));
         // Gestione ghost house
         if (!m_hasLeftGhostHouse && !map.isGhostHouse(sx, sy)) m_hasLeftGhostHouse = true;
         if (m_hasLeftGhostHouse && map.isGhostHouse(sx, sy)) m_hasLeftGhostHouse = false;
-        // Calcola il target (scatter/chase)
+        // Uscita forzata dalla ghost house per tutti i fantasmi
         sf::Vector2f target;
-        if (m_mode == Mode::Scatter) {
+        int x = int(std::round((pos.x - tileSize.x/2.f) / tileSize.x));
+        int y = int(std::round((pos.y - tileSize.y/2.f) / tileSize.y));
+        if (map.isGhostHouse(x, y)) {
+            // Target dinamico: porta di uscita del ghost house
+            target = getGhostHouseExit(map, tileSize);
+        } else if (m_mode == Mode::Scatter) {
             switch (m_type) {
                 case Type::Blinky: target = {(w-1) * float(tileSize.x), 0}; break;
                 case Type::Pinky:  target = {0, 0}; break;
@@ -67,9 +64,13 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
     int nextX = int(std::round(cx + m_direction.x));
     int nextY = int(std::round(cy + m_direction.y));
     bool validMove = true;
-    if (nextX < 0 && int(std::round(cy)) == 10) nextX = w - 1;
-    else if (nextX >= w && int(std::round(cy)) == 10) nextX = 0;
-    else if (nextX < 0 || nextX >= w) validMove = false;
+    // Tunnel logic: if on tunnel row (y==10) and moving out of bounds horizontally, wrap to the other side
+    if (nextY == 10) {
+        if (nextX < 0) nextX = w - 1;
+        else if (nextX >= w) nextX = 0;
+    }
+    // After tunnel logic, check bounds
+    if (nextX < 0 || nextX >= w) validMove = false;
     if (nextY < 0 || nextY >= h) validMove = false;
     if (validMove && canMove(m_direction, map, tileSize)) {
         sf::Vector2f dest{nextX * float(tileSize.x) + tileSize.x/2.f, nextY * float(tileSize.y) + tileSize.y/2.f};
@@ -84,7 +85,7 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
                 m_shape.move(normalizedDelta * step);
             }
         }
-        // Teletrasporto tunnel
+        // Tunnel teleport: if on tunnel row and out of bounds after move, teleport to opposite side
         float tunnelY = 10 * tileSize.y + tileSize.y/2.f;
         float mapWidth = map.getSize().x * tileSize.x;
         if (std::abs(m_shape.getPosition().y - tunnelY) < tileSize.y/4.f) {
@@ -180,13 +181,36 @@ bool Ghost::canMove(const sf::Vector2f& direction, const TileMap& map, const sf:
     int nextX = int(std::round(cx + direction.x));
     int nextY = int(std::round(cy + direction.y));
     int w = map.getSize().x, h = map.getSize().y;
-    // Tunnel orizzontali (riga 10)
-    if (nextX < 0 && int(std::round(cy)) == 10) nextX = w - 1;
-    else if (nextX >= w && int(std::round(cy)) == 10) nextX = 0;
-    else if (nextX < 0 || nextX >= w) return false;
-    if (nextY < 0 || nextY >= h) return false;
+    // Tunnel orizzontali (riga 10): se si esce a sinistra/destra sulla riga tunnel, si entra dall'altro lato
+    if (nextY == 10) {
+        if (nextX < 0) nextX = w - 1;
+        else if (nextX >= w) nextX = 0;
+    }
+    // Dopo la gestione tunnel, controlla i limiti
     if (nextX < 0 || nextX >= w || nextY < 0 || nextY >= h) return false;
     if (map.isWall(nextX, nextY)) return false;
     if (m_hasLeftGhostHouse && map.isGhostHouse(nextX, nextY)) return false;
     return true;
+}
+
+// Trova la porta di uscita della ghost house: cerca verso l'alto, poi lateralmente se serve
+sf::Vector2f Ghost::getGhostHouseExit(const TileMap& map, const sf::Vector2u& tileSize) const {
+    sf::Vector2f pos = m_shape.getPosition();
+    int x = int(std::round((pos.x - tileSize.x/2.f) / tileSize.x));
+    int y = int(std::round((pos.y - tileSize.y/2.f) / tileSize.y));
+    // Cerca verso l'alto
+    for (int yy = y-1; yy >= 0; --yy) {
+        if (!map.isGhostHouse(x, yy) && !map.isWall(x, yy)) {
+            return {x * float(tileSize.x) + tileSize.x/2.f, yy * float(tileSize.y) + tileSize.y/2.f};
+        }
+    }
+    // Se non trova sopra, cerca lateralmente sulla stessa riga
+    for (int dx = 1; dx < 5; ++dx) {
+        if (x-dx >= 0 && !map.isGhostHouse(x-dx, y) && !map.isWall(x-dx, y))
+            return {(x-dx) * float(tileSize.x) + tileSize.x/2.f, y * float(tileSize.y) + tileSize.y/2.f};
+        if (x+dx < int(map.getSize().x) && !map.isGhostHouse(x+dx, y) && !map.isWall(x+dx, y))
+            return {(x+dx) * float(tileSize.x) + tileSize.x/2.f, y * float(tileSize.y) + tileSize.y/2.f};
+    }
+    // Fallback: ritorna la posizione attuale
+    return pos;
 }

@@ -4,30 +4,22 @@
 #include <unordered_set>
 #include <algorithm>
 
-Pinky::Pinky(const sf::Vector2f& pos) : Ghost(pos, sf::Color::Magenta, 12.0f, Type::Pinky) {
-}
+// Pinky: il fantasma rosa, mira 4 caselle avanti a Pac-Man
+Pinky::Pinky(const sf::Vector2f& pos) : Ghost(pos, sf::Color::Magenta, 12.0f, Type::Pinky) {}
 
+// Target = 4 caselle avanti nella direzione di Pac-Man
 sf::Vector2f Pinky::calculateTarget(const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, 
                                   const TileMap& map, const sf::Vector2u& tileSize) {
-    // Pinky punta a 4 caselle davanti a Pac-Man
     sf::Vector2f target = pacmanPos;
-    
-    // Normalizza la direzione di Pac-Man per essere sicuri che sia unitaria
-    sf::Vector2f dir = pacmanDirection;
-    float dirLength = std::hypot(dir.x, dir.y);
-    if (dirLength > 0.1f) {
-        dir = dir / dirLength; // Normalizza
-        
-        // Calcola target = posizionePacman + 4*(dx,dy) in coordinate tile
+    if (std::hypot(pacmanDirection.x, pacmanDirection.y) > 0.1f) {
+        sf::Vector2f dir = pacmanDirection / std::hypot(pacmanDirection.x, pacmanDirection.y);
         target.x += 4.0f * dir.x * float(tileSize.x);
         target.y += 4.0f * dir.y * float(tileSize.y);
+        // Clamp ai bordi
+        int w = map.getSize().x, h = map.getSize().y;
+        target.x = std::max(float(tileSize.x/2), std::min(target.x, (w-1) * float(tileSize.x) + float(tileSize.x/2)));
+        target.y = std::max(float(tileSize.y/2), std::min(target.y, (h-1) * float(tileSize.y) + float(tileSize.y/2)));
     }
-    
-    // Assicurati che il target sia dentro i limiti della mappa
-    int w = map.getSize().x, h = map.getSize().y;
-    target.x = std::max(0.0f, std::min(target.x, (w-1) * float(tileSize.x)));
-    target.y = std::max(0.0f, std::min(target.y, (h-1) * float(tileSize.y)));
-    
     return target;
 }
 

@@ -1,13 +1,12 @@
 #include "Blinky.hpp"
 #include <cmath>
-#include <algorithm>
 
-Blinky::Blinky(const sf::Vector2f& pos) : Ghost(pos, sf::Color::Red, 12.0f, Type::Blinky) {
-}
+// Blinky: il fantasma rosso, insegue direttamente Pac-Man
+Blinky::Blinky(const sf::Vector2f& pos) : Ghost(pos, sf::Color::Red, 12.0f, Type::Blinky) {}
 
-sf::Vector2f Blinky::calculateTarget(const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, 
-                                   const TileMap& map, const sf::Vector2u& tileSize) {
-    // Blinky punta direttamente a Pac-Man
+// Target = posizione attuale di Pac-Man
+sf::Vector2f Blinky::calculateTarget(const sf::Vector2f& pacmanPos, const sf::Vector2f&, 
+                                   const TileMap&, const sf::Vector2u&) {
     return pacmanPos;
 }
 

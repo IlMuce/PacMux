@@ -130,6 +130,46 @@ int main()
     };
     bool modeJustChanged = false;
 
+    // --- Super Pellet positions ---
+    std::vector<sf::Vector2f> superPelletPositions;
+    for (unsigned y = 0; y < mapSz.y; ++y) {
+        for (unsigned x = 0; x < mapSz.x; ++x) {
+            if (map.getData()[y][x] == 'S') {
+                superPelletPositions.emplace_back(
+                    x * float(tileSize.x) + tileSize.x/2.f,
+                    y * float(tileSize.y) + tileSize.y/2.f
+                );
+            }
+        }
+    }
+
+    // Funzione di reset centralizzata per pellet e super pellet
+    auto resetPelletsAndSuperPellets = [&]() {
+        if (!map.load(mapPath.string(), tileSize)) {
+            MessageBoxA(NULL, ("Errore caricamento mappa:\n"+mapPath.string()).c_str(),
+                        "Errore Pacman", MB_OK|MB_ICONERROR);
+            exit(EXIT_FAILURE);
+        }
+        pellets.clear();
+        superPelletPositions.clear();
+        for (unsigned y = 0; y < mapSz.y; ++y) {
+            for (unsigned x = 0; x < mapSz.x; ++x) {
+                char tile = map.getData()[y][x];
+                sf::Vector2f pos{
+                    x*float(tileSize.x)+tileSize.x/2.f,
+                    y*float(tileSize.y)+tileSize.y/2.f
+                };
+                bool isPacmanSpawn = (std::abs(pos.x - startPos.x) < 1e-2f && std::abs(pos.y - startPos.y) < 1e-2f);
+                if (tile == '0' && !isPacmanSpawn) {
+                    pellets.emplace_back(pos);
+                }
+                if (tile == 'S') {
+                    superPelletPositions.emplace_back(pos);
+                }
+            }
+        }
+    };
+
     // Game loop principale
     sf::Clock clock;
     bool gameOver = false;
@@ -197,25 +237,28 @@ int main()
                     it = pellets.erase(it);
                 } else ++it;
 
+            // --- Raccolta Super Pellet ---
+            unsigned pacTileX = static_cast<unsigned>(pac.getPosition().x / tileSize.x);
+            unsigned pacTileY = static_cast<unsigned>(pac.getPosition().y / tileSize.y);
+            // Se la posizione è ancora in superPelletPositions, la raccogli
+            auto it = std::find_if(superPelletPositions.begin(), superPelletPositions.end(),
+                [&](const sf::Vector2f& pos) {
+                    return (std::abs(pos.x - (pacTileX * tileSize.x + tileSize.x/2.f)) < 1e-2f &&
+                            std::abs(pos.y - (pacTileY * tileSize.y + tileSize.y/2.f)) < 1e-2f);
+                });
+            if (it != superPelletPositions.end()) {
+                superPelletPositions.erase(it);
+                std::cout << "[DEBUG] Super Pellet raccolto a (" << pacTileX << ", " << pacTileY << ")\n";
+                // TODO: Attiva modalità Frightened per tutti i fantasmi
+                // for (auto& g : ghosts) g->setFrightened(...);
+            }
+
             // Se tutti i pellet sono stati raccolti, mostra messaggio e resetta
             if (pellets.empty()) {
                 MessageBoxA(NULL, "Hai raccolto tutti i pellet! Premi OK per ripartire.", "You Win!", MB_OK|MB_ICONINFORMATION);
                 pac = Player(120.f, startPos, tileSize);
                 score = std::make_unique<Score>(fontPath.string());
-                pellets.clear();
-                for (unsigned y = 0; y < mapSz.y; ++y) {
-                    for (unsigned x = 0; x < mapSz.x; ++x) {
-                        char tile = map.getData()[y][x];
-                        sf::Vector2f pos{
-                            x*float(tileSize.x)+tileSize.x/2.f,
-                            y*float(tileSize.y)+tileSize.y/2.f
-                        };
-                        bool isPacmanSpawn = (std::abs(pos.x - startPos.x) < 1e-2f && std::abs(pos.y - startPos.y) < 1e-2f);
-                        if (tile == '0' && !isPacmanSpawn) {
-                            pellets.emplace_back(pos);
-                        }
-                    }
-                }
+                resetPelletsAndSuperPellets();
                 // Reset posizione fantasmi
                 for (size_t i = 0; i < ghosts.size(); ++i) {
                     ghosts[i]->setPosition(ghostStartPos[i]);
@@ -232,20 +275,7 @@ int main()
                     MessageBoxA(NULL, "Game Over! Pac-Man ha incontrato un fantasma. Premi OK per ripartire.", "Game Over", MB_OK|MB_ICONERROR);
                     pac = Player(120.f, startPos, tileSize);
                     score = std::make_unique<Score>(fontPath.string());
-                    pellets.clear();
-                    for (unsigned y = 0; y < mapSz.y; ++y) {
-                        for (unsigned x = 0; x < mapSz.x; ++x) {
-                            char tile = map.getData()[y][x];
-                            sf::Vector2f pos{
-                                x*float(tileSize.x)+tileSize.x/2.f,
-                                y*float(tileSize.y)+tileSize.y/2.f
-                            };
-                            bool isPacmanSpawn = (std::abs(pos.x - startPos.x) < 1e-2f && std::abs(pos.y - startPos.y) < 1e-2f);
-                            if (tile == '0' && !isPacmanSpawn) {
-                                pellets.emplace_back(pos);
-                            }
-                        }
-                    }
+                    resetPelletsAndSuperPellets();
                     // Reset posizione fantasmi
                     for (size_t i = 0; i < ghosts.size(); ++i) {
                         ghosts[i]->setPosition(ghostStartPos[i]);
@@ -268,8 +298,16 @@ int main()
         // Rendering
         window.clear();
         window.draw(map);
-        // Prima i pellet, poi i fantasmi, poi Pac-Man sopra tutto
+        // Prima i pellet, poi i Super Pellet grandi, poi i fantasmi, poi Pac-Man sopra tutto
         for (auto& p : pellets) window.draw(p);
+        // Disegna i Super Pellet come cerchi grandi
+        for (const auto& pos : superPelletPositions) {
+            sf::CircleShape superPellet(12.f); // raggio 12px (triplo del pellet normale)
+            superPellet.setOrigin(sf::Vector2f(12.f, 12.f));
+            superPellet.setPosition(pos);
+            superPellet.setFillColor(sf::Color(255, 192, 203)); // rosa chiaro
+            window.draw(superPellet);
+        }
         for (auto& g : ghosts) window.draw(*g);
         window.draw(pac);
         score->draw(window);

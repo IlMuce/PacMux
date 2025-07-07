@@ -39,6 +39,8 @@ bool TileMap::load(const std::string& filename, const sf::Vector2u& tileSize) {
                 tile.setFillColor(sf::Color(0, 120, 255)); // blu chiaro
             } else if (m_data[y][x] == '2') {
                 tile.setFillColor(sf::Color::Black); // contorno nero
+            } else if (m_data[y][x] == 'S') {
+                tile.setFillColor(sf::Color::Black); // Super Pellet: sfondo nero, il disegno avviene nel main
             } else {
                 tile.setFillColor(sf::Color::Black); // corridoio
             }

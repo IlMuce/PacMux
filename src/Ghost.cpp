@@ -20,6 +20,15 @@ Ghost::Ghost(const sf::Vector2f& pos, sf::Color color, float radius, Type type)
     m_shape.setOrigin({radius, radius});
     m_shape.setPosition(pos);
     m_target = pos;
+    // Imposta il delay di uscita classico
+    switch (m_type) {
+        case Type::Blinky: m_releaseDelay = 0.f; break;
+        case Type::Pinky:  m_releaseDelay = 2.f; break;
+        case Type::Inky:   m_releaseDelay = 4.f; break;
+        case Type::Clyde:  m_releaseDelay = 6.f; break;
+    }
+    m_releaseTimer = 0.f;
+    m_canLeaveHouse = false;
 }
 
 void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize, 
@@ -78,6 +87,15 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
     bool centered = (std::abs(pos.x - center.x) < 2.0f && std::abs(pos.y - center.y) < 2.0f);
     int w = map.getSize().x, h = map.getSize().y;
 
+    // --- Gestione timer di uscita dalla ghost house ---
+    if (!m_hasLeftGhostHouse && !m_canLeaveHouse && !m_eaten && !m_isReturningToHouse) {
+        m_releaseTimer += dt;
+        if (m_releaseTimer >= m_releaseDelay) {
+            m_canLeaveHouse = true;
+            std::cout << "[GHOST] " << (int)m_type << " può uscire dalla ghost house!" << std::endl;
+        }
+    }
+
     bool shouldUpdateDirection = centered && 
                                ((m_direction.x == 0 && m_direction.y == -1) ||
                                !canMove(m_direction, map, tileSize));
@@ -85,15 +103,19 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
         int sx = int(std::round(cx));
         int sy = int(std::round(cy));
         // Gestione ghost house
-        if (!m_hasLeftGhostHouse && !map.isGhostHouse(sx, sy)) m_hasLeftGhostHouse = true;
+        if (!m_hasLeftGhostHouse && !map.isGhostHouse(sx, sy) && m_canLeaveHouse) m_hasLeftGhostHouse = true;
         if (m_hasLeftGhostHouse && map.isGhostHouse(sx, sy)) m_hasLeftGhostHouse = false;
         // Uscita forzata dalla ghost house per tutti i fantasmi
         sf::Vector2f target;
         int x = int(std::round((pos.x - tileSize.x/2.f) / tileSize.x));
         int y = int(std::round((pos.y - tileSize.y/2.f) / tileSize.y));
         if (map.isGhostHouse(x, y)) {
-            // Target dinamico: porta di uscita del ghost house
-            target = getGhostHouseExit(map, tileSize);
+            // Solo se può uscire
+            if (m_canLeaveHouse) {
+                target = getGhostHouseExit(map, tileSize);
+            } else {
+                target = {x * float(tileSize.x) + tileSize.x/2.f, y * float(tileSize.y) + tileSize.y/2.f}; // resta fermo
+            }
         } else if (m_mode == Mode::Scatter) {
             switch (m_type) {
                 case Type::Blinky: target = {(w-1) * float(tileSize.x), 0}; break;
@@ -101,6 +123,8 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
                 case Type::Inky:   target = {(w-1) * float(tileSize.x), (h-1) * float(tileSize.y)}; break;
                 case Type::Clyde:  target = {0, (h-1) * float(tileSize.y)}; break;
             }
+            sf::Vector2f pos = m_shape.getPosition();
+            std::cout << "[SCATTER] " << Ghost::getTypeName(m_type) << " Target: (" << target.x << ", " << target.y << ") Pos: (" << pos.x << ", " << pos.y << ")" << std::endl;
         } else {
             target = calculateTarget(pacmanPos, pacmanDirection, map, tileSize);
         }

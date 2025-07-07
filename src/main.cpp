@@ -121,12 +121,12 @@ int main()
 
     // --- TIMER MODALITÀ GHOSTS ---
     enum class GhostMode { Scatter, Chase };
-    GhostMode ghostMode = GhostMode::Chase; // INIZIA DIRETTAMENTE IN CHASE PER TEST
+    GhostMode ghostMode = GhostMode::Scatter; // Inizia in modalità SCATTER come nel classico
     float modeTimer = 0.f;
     int modePhase = 0;
-    // Tabella classica: scatter/chase (in secondi) - DISABILITATA PER TEST
+    // Tabella classica: scatter/chase (in secondi) - ora SCATTER È LUNGO QUANTO ERA chase E VICEVERSA
     const std::vector<float> scatterChaseTimes = {
-        7.f, 20.f, 7.f, 20.f, 5.f, 20.f, 5.f, -1.f // -1 = chase infinito
+        7.f, 20.f, 7.f, 20.f, 5.f, 20.f, 5.f, -1.f // tempi classici Pac-Man
     };
     bool modeJustChanged = false;
 
@@ -176,10 +176,9 @@ int main()
     while (window.isOpen()) {
         float dt = clock.restart().asSeconds();
 
-        // --- Modalità ghosts --- DISABILITATO PER TEST CHASE MODE
+        // --- Modalità ghosts ---
         modeJustChanged = false;
-        // Commentiamo temporaneamente il cambio automatico di modalità
-        /*
+        // Riattiva il cambio automatico scatter/chase
         if (modePhase < (int)scatterChaseTimes.size() && scatterChaseTimes[modePhase] > 0.f) {
             modeTimer += dt;
             if (modeTimer >= scatterChaseTimes[modePhase]) {
@@ -187,9 +186,9 @@ int main()
                 modePhase++;
                 ghostMode = (ghostMode == GhostMode::Scatter) ? GhostMode::Chase : GhostMode::Scatter;
                 modeJustChanged = true;
+                std::cout << "[DEBUG] Cambio modalità fantasmi: " << (ghostMode == GhostMode::Scatter ? "SCATTER" : "CHASE") << std::endl;
             }
         }
-        */
         // Gestione eventi finestra
         while (auto ev = window.pollEvent())
             if (ev->is<sf::Event::Closed>())

@@ -40,6 +40,16 @@ public:
     bool isEaten() const { return m_eaten; }
     bool isReturningToHouse() const { return m_isReturningToHouse; }
 
+    static const char* getTypeName(Type type) {
+        switch(type) {
+            case Type::Blinky: return "Blinky";
+            case Type::Pinky:  return "Pinky";
+            case Type::Inky:   return "Inky";
+            case Type::Clyde:  return "Clyde";
+            default: return "Unknown";
+        }
+    }
+
 protected:
     virtual sf::Vector2f calculateTarget(const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, 
                                         const TileMap& map, const sf::Vector2u& tileSize) = 0;
@@ -69,4 +79,9 @@ protected:
     bool m_isReturningToHouse = false;
     float m_respawnTimer = 0.f;
     float m_respawnDuration = 3.f; // seconds in ghost house after being eaten
+
+    // Ghost release timer (per ghost)
+    float m_releaseTimer = 0.f;
+    float m_releaseDelay = 0.f; // quanto deve aspettare prima di poter uscire
+    bool m_canLeaveHouse = false;
 };

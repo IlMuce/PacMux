@@ -31,6 +31,15 @@ public:
     Type getType() const { return m_type; }
     bool hasLeftGhostHouse() const { return m_hasLeftGhostHouse; }
 
+    // Set frightened mode for a duration (in seconds)
+    void setFrightened(float duration);
+    bool isFrightened() const { return m_isFrightened; }
+
+    // Eaten/respawn state
+    void setEaten(bool eaten);
+    bool isEaten() const { return m_eaten; }
+    bool isReturningToHouse() const { return m_isReturningToHouse; }
+
 protected:
     virtual sf::Vector2f calculateTarget(const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, 
                                         const TileMap& map, const sf::Vector2u& tileSize) = 0;
@@ -49,4 +58,15 @@ protected:
     Type m_type;
     Mode m_mode;
     bool m_hasLeftGhostHouse;
+
+    // Frightened mode state
+    bool m_isFrightened = false;
+    float m_frightenedTimer = 0.f;
+    float m_frightenedDuration = 0.f;
+
+    // Eaten/respawn state
+    bool m_eaten = false;
+    bool m_isReturningToHouse = false;
+    float m_respawnTimer = 0.f;
+    float m_respawnDuration = 3.f; // seconds in ghost house after being eaten
 };

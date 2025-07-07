@@ -251,6 +251,8 @@ int main()
                 std::cout << "[DEBUG] Super Pellet raccolto a (" << pacTileX << ", " << pacTileY << ")\n";
                 // TODO: Attiva modalità Frightened per tutti i fantasmi
                 // for (auto& g : ghosts) g->setFrightened(...);
+                // Attiva modalità Frightened per tutti i fantasmi
+                for (auto& g : ghosts) g->setFrightened(6.0f); // 6 secondi di frightened
             }
 
             // Se tutti i pellet sono stati raccolti, mostra messaggio e resetta
@@ -272,16 +274,26 @@ int main()
                              (pac.getPosition() - ghost->getPosition()).y * (pac.getPosition() - ghost->getPosition()).y;
                 float minDist = 24.f * 24.f; // raggio Pac-Man + raggio Ghost (approssimato)
                 if (dist < minDist) {
-                    MessageBoxA(NULL, "Game Over! Pac-Man ha incontrato un fantasma. Premi OK per ripartire.", "Game Over", MB_OK|MB_ICONERROR);
-                    pac = Player(120.f, startPos, tileSize);
-                    score = std::make_unique<Score>(fontPath.string());
-                    resetPelletsAndSuperPellets();
-                    // Reset posizione fantasmi
-                    for (size_t i = 0; i < ghosts.size(); ++i) {
-                        ghosts[i]->setPosition(ghostStartPos[i]);
+                    if (ghost->isFrightened() && !ghost->isEaten()) {
+                        // Pac-Man mangia il fantasma
+                        ghost->setEaten(true);
+                        // Aumenta il punteggio (es: 200 punti per fantasma)
+                        score->add(200);
+                        continue;
+                    } else if (!ghost->isEaten() && !ghost->isReturningToHouse()) {
+                        MessageBoxA(NULL, "Game Over! Pac-Man ha incontrato un fantasma. Premi OK per ripartire.", "Game Over", MB_OK|MB_ICONERROR);
+                        pac = Player(120.f, startPos, tileSize);
+                        score = std::make_unique<Score>(fontPath.string());
+                        resetPelletsAndSuperPellets();
+                        // Reset posizione fantasmi
+                        for (size_t i = 0; i < ghosts.size(); ++i) {
+                            ghosts[i]->setPosition(ghostStartPos[i]);
+                            ghosts[i]->setFrightened(0.f); // Reset frightened state
+                            ghosts[i]->setEaten(false);    // Reset eaten state
+                        }
+                        gameOver = true;
+                        break;
                     }
-                    gameOver = true;
-                    break;
                 }
             }
         }

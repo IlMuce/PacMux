@@ -1,6 +1,9 @@
 #include "Ghost.hpp"
 #include <cmath>
 #include <iostream>
+#include <algorithm> // for std::random_shuffle
+#include <random>
+#include <ctime>
 
 // =========================
 // Classe base Ghost
@@ -11,7 +14,7 @@
 
 Ghost::Ghost(const sf::Vector2f& pos, sf::Color color, float radius, Type type)
     : m_shape(radius), m_direction(0, -1), m_speed(90.f), m_type(type), m_mode(Mode::Chase), 
-      m_drawPos(pos), m_hasLeftGhostHouse(false)
+      m_drawPos(pos), m_hasLeftGhostHouse(false), m_eaten(false), m_isReturningToHouse(false)
 {
     m_shape.setFillColor(color);
     m_shape.setOrigin({radius, radius});
@@ -21,6 +24,49 @@ Ghost::Ghost(const sf::Vector2f& pos, sf::Color color, float radius, Type type)
 
 void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize, 
                   const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, Mode mode) {
+    // --- Ghost eaten/respawn logic: gestisci PRIMA di tutto ---
+    if (m_isReturningToHouse) {
+        int houseX = 10, houseY = 10;
+        sf::Vector2f houseCenter = {houseX * float(tileSize.x) + tileSize.x/2.f, houseY * float(tileSize.y) + tileSize.y/2.f};
+        sf::Vector2f pos = m_shape.getPosition();
+        float distToHouse = std::hypot(pos.x - houseCenter.x, pos.y - houseCenter.y);
+        if (distToHouse < tileSize.x * 1.0f) {
+            std::cout << "[GHOST] Arrived at ghost house, waiting to respawn.\n";
+            m_isReturningToHouse = false;
+            m_eaten = true;
+            m_speed = 0.f;
+            m_respawnTimer = 0.f;
+            m_shape.setPosition(houseCenter);
+            m_drawPos = houseCenter;
+            return;
+        }
+        sf::Vector2f delta = houseCenter - pos;
+        float step = m_speed * dt;
+        float dist = std::hypot(delta.x, delta.y);
+        if (dist > 0) {
+            sf::Vector2f normalizedDelta = delta / dist;
+            m_shape.move(normalizedDelta * step);
+        }
+        m_drawPos = m_shape.getPosition();
+        return;
+    }
+    if (m_eaten) {
+        m_respawnTimer += dt;
+        if (m_respawnTimer >= m_respawnDuration) {
+            std::cout << "[GHOST] Respawn timer done, ghost leaves house.\n";
+            m_eaten = false;
+            m_speed = 90.f;
+            m_isFrightened = false;
+            m_direction = {0, -1};
+            m_hasLeftGhostHouse = false; // deve uscire di nuovo!
+            m_shape.move(sf::Vector2f(0, -static_cast<float>(tileSize.y)));
+            m_drawPos = m_shape.getPosition();
+        } else {
+            m_drawPos = m_shape.getPosition();
+            return;
+        }
+    }
+
     m_mode = mode;
     sf::Vector2f pos = m_shape.getPosition();
     float cx = std::round((pos.x - tileSize.x/2.f) / tileSize.x);
@@ -114,12 +160,95 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
         if (m_direction == sf::Vector2f(0,0)) m_direction = {0, -1};
     }
     m_drawPos = m_shape.getPosition();
+
+    // --- Frightened mode logic ---
+    if (m_isFrightened) {
+        m_frightenedTimer += dt;
+        if (m_frightenedTimer >= m_frightenedDuration) {
+            m_isFrightened = false;
+            m_mode = Mode::Chase;
+            m_speed = 90.f; // restore normal speed
+        }
+    }
+
+    // If frightened, move randomly at intersections
+    if (m_isFrightened && centered) {
+        std::vector<sf::Vector2f> directions = {{0,-1}, {1,0}, {0,1}, {-1,0}};
+        // Shuffle directions for randomness (C++17+)
+        std::shuffle(directions.begin(), directions.end(), std::default_random_engine(static_cast<unsigned>(std::time(nullptr))));
+        for (const auto& dir : directions) {
+            bool isReverse = (dir + m_direction == sf::Vector2f(0,0) && m_direction != sf::Vector2f(0,0));
+            if (canMove(dir, map, tileSize) && !isReverse) {
+                m_direction = dir;
+                break;
+            }
+        }
+    }
+
+    // --- Ghost eaten/respawn logic ---
+    if (m_isReturningToHouse) {
+        // Move towards ghost house center (e.g., tile 10,10)
+        int houseX = 10, houseY = 10;
+        sf::Vector2f houseCenter = {houseX * float(tileSize.x) + tileSize.x/2.f, houseY * float(tileSize.y) + tileSize.y/2.f};
+        sf::Vector2f pos = m_shape.getPosition();
+        float distToHouse = std::hypot(pos.x - houseCenter.x, pos.y - houseCenter.y);
+        if (distToHouse < tileSize.x * 1.0f) {
+            // Arrived at ghost house
+            std::cout << "[GHOST] Arrived at ghost house, waiting to respawn.\n";
+            m_isReturningToHouse = false;
+            m_eaten = true;
+            m_speed = 0.f;
+            m_respawnTimer = 0.f;
+            m_shape.setPosition(houseCenter);
+            m_drawPos = houseCenter;
+            return;
+        }
+        // Move towards house
+        sf::Vector2f delta = houseCenter - pos;
+        float step = m_speed * dt;
+        float dist = std::hypot(delta.x, delta.y);
+        if (dist > 0) {
+            sf::Vector2f normalizedDelta = delta / dist;
+            m_shape.move(normalizedDelta * step);
+        }
+        m_drawPos = m_shape.getPosition();
+        return;
+    }
+    if (m_eaten) {
+        // Wait in ghost house, then respawn
+        m_respawnTimer += dt;
+        if (m_respawnTimer >= m_respawnDuration) {
+            std::cout << "[GHOST] Respawn timer done, ghost leaves house.\n";
+            m_eaten = false;
+            m_speed = 90.f;
+            m_isFrightened = false;
+            m_direction = {0, -1};
+            m_hasLeftGhostHouse = false; // deve uscire di nuovo!
+            // Place just outside ghost house
+            m_shape.move(sf::Vector2f(0, -static_cast<float>(tileSize.y)));
+            m_drawPos = m_shape.getPosition();
+        } else {
+            m_drawPos = m_shape.getPosition();
+            return;
+        }
+    }
 }
 
 void Ghost::draw(sf::RenderTarget& target, sf::RenderStates states) const {
     states.transform *= getTransform();
     sf::CircleShape shape = m_shape;
     shape.setPosition(m_drawPos);
+    if (m_isFrightened) {
+        // Lampeggia tra blu e bianco negli ultimi 2 secondi
+        if (m_frightenedDuration - m_frightenedTimer < 2.f) {
+            int blink = int(m_frightenedTimer * 8) % 2;
+            shape.setFillColor(blink ? sf::Color(255,255,255) : sf::Color(0,0,255));
+        } else {
+            shape.setFillColor(sf::Color(0, 0, 255));
+        }
+    } else if (m_eaten || m_isReturningToHouse) {
+        shape.setFillColor(sf::Color(200,200,200)); // Gray/white for eyes
+    }
     target.draw(shape, states);
 }
 
@@ -128,6 +257,40 @@ void Ghost::setPosition(const sf::Vector2f& pos) {
     m_direction = {0, -1};
     m_drawPos = pos;
     m_hasLeftGhostHouse = false;
+}
+
+void Ghost::setFrightened(float duration) {
+    if (duration <= 0.f) {
+        m_isFrightened = false;
+        m_frightenedTimer = 0.f;
+        m_frightenedDuration = 0.f;
+        m_mode = Mode::Chase;
+        m_speed = 90.f;
+        return;
+    }
+    m_isFrightened = true;
+    m_frightenedTimer = 0.f;
+    m_frightenedDuration = duration;
+    m_mode = Mode::Frightened;
+    m_speed = 60.f; // slower when frightened
+    // Reverse direction
+    m_direction = {-m_direction.x, -m_direction.y};
+}
+
+void Ghost::setEaten(bool eaten) {
+    if (eaten) {
+        m_isFrightened = false;
+        m_eaten = true;
+        m_isReturningToHouse = true;
+        m_speed = 180.f; // fast return to house
+        m_respawnTimer = 0.f;
+        std::cout << "[GHOST] EATEN! Returning to ghost house as eyes.\n";
+    } else {
+        m_eaten = false;
+        m_isReturningToHouse = false;
+        m_speed = 90.f;
+        std::cout << "[GHOST] Respawned, back to normal.\n";
+    }
 }
 
 // Pathfinding greedy base: cerca la direzione che avvicina di più al target, evitando reverse se possibile

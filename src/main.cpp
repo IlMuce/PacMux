@@ -264,6 +264,8 @@ int main()
                 // Reset posizione fantasmi
                 for (size_t i = 0; i < ghosts.size(); ++i) {
                     ghosts[i]->setPosition(ghostStartPos[i]);
+                    ghosts[i]->setFrightened(0.f); // Reset frightened state
+                    ghosts[i]->setEaten(false);    // Reset eaten state
                 }
                 gameOver = true;
             }

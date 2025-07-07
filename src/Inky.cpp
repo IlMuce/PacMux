@@ -35,6 +35,11 @@ sf::Vector2f Inky::calculateTarget(const sf::Vector2f& pacmanPos, const sf::Vect
 void Inky::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
                   const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, Mode mode,
                   const sf::Vector2f& blinkyPos) {
+    // Se è in stato eaten/returning, lascia che la base gestisca tutto!
+    if (m_eaten || m_isReturningToHouse) {
+        Ghost::update(dt, map, tileSize, pacmanPos, pacmanDirection, mode);
+        return;
+    }
     static float debugTimer = 0.f;
     m_mode = mode;
     sf::Vector2f pos = m_shape.getPosition();
@@ -54,14 +59,9 @@ void Inky::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
         debugTimer = 0.f;
     }
     if (map.isGhostHouse(sx, sy)) {
-        // Movimento semplice per uscire dalla ghost house
-        static const sf::Vector2f dirs[] = {{0,-1}, {1,0}, {-1,0}};
-        for (const auto& dir : dirs) {
-            if (canMove(dir, map, tileSize)) {
-                m_direction = dir;
-                break;
-            }
-        }
+        // Usa il pathfinding verso la porta di uscita
+        sf::Vector2f exit = getGhostHouseExit(map, tileSize);
+        m_direction = findPath(exit, map, tileSize);
         float nextX = cx + m_direction.x;
         float nextY = cy + m_direction.y;
         int w = map.getSize().x, h = map.getSize().y;

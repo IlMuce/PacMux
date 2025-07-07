@@ -7,6 +7,11 @@ Clyde::Clyde(const sf::Vector2f& pos) : Ghost(pos, sf::Color(255, 165, 0), 12.0f
 
 void Clyde::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
                   const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, Mode mode) {
+    // Se è in stato eaten/returning, lascia che la base gestisca tutto!
+    if (m_eaten || m_isReturningToHouse) {
+        Ghost::update(dt, map, tileSize, pacmanPos, pacmanDirection, mode);
+        return;
+    }
     static float debugTimer = 0.f;
     m_mode = mode;
     sf::Vector2f pos = m_shape.getPosition();
@@ -26,42 +31,36 @@ void Clyde::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
         debugTimer = 0.f;
     }
     if (map.isGhostHouse(sx, sy)) {
-        // Prova su, destra, sinistra per uscire
-        static const sf::Vector2f dirs[] = {{0,-1}, {1,0}, {-1,0}};
-        for (const auto& dir : dirs) {
-            if (canMove(dir, map, tileSize)) {
-                m_direction = dir;
-                break;
+        // Usa il pathfinding verso la porta di uscita
+        sf::Vector2f exit = getGhostHouseExit(map, tileSize);
+        m_direction = findPath(exit, map, tileSize);
+        float nextX = cx + m_direction.x;
+        float nextY = cy + m_direction.y;
+        int w = map.getSize().x, h = map.getSize().y;
+        if (nextY == 10) {
+            if (nextX < 0) nextX = w - 1;
+            else if (nextX >= w) nextX = 0;
+        }
+        if (nextX >= 0 && nextX < w && nextY >= 0 && nextY < h && canMove(m_direction, map, tileSize)) {
+            sf::Vector2f dest{nextX * float(tileSize.x) + tileSize.x/2.f, nextY * float(tileSize.y) + tileSize.y/2.f};
+            sf::Vector2f delta = dest - m_shape.getPosition();
+            float step = m_speed * dt;
+            if (std::hypot(delta.x, delta.y) <= step) {
+                m_shape.setPosition(dest);
+            } else {
+                float deltaLen = std::hypot(delta.x, delta.y);
+                if (deltaLen > 0) {
+                    sf::Vector2f normalizedDelta = delta / deltaLen;
+                    m_shape.move(normalizedDelta * step);
+                }
             }
         }
+        m_drawPos = m_shape.getPosition();
     } else {
         // Comportamento normale: delega alla base
         Ghost::update(dt, map, tileSize, pacmanPos, pacmanDirection, mode);
         return;
     }
-    // Movimento semplice (come base)
-    float nextX = cx + m_direction.x;
-    float nextY = cy + m_direction.y;
-    int w = map.getSize().x, h = map.getSize().y;
-    if (nextY == 10) {
-        if (nextX < 0) nextX = w - 1;
-        else if (nextX >= w) nextX = 0;
-    }
-    if (nextX >= 0 && nextX < w && nextY >= 0 && nextY < h && canMove(m_direction, map, tileSize)) {
-        sf::Vector2f dest{nextX * float(tileSize.x) + tileSize.x/2.f, nextY * float(tileSize.y) + tileSize.y/2.f};
-        sf::Vector2f delta = dest - m_shape.getPosition();
-        float step = m_speed * dt;
-        if (std::hypot(delta.x, delta.y) <= step) {
-            m_shape.setPosition(dest);
-        } else {
-            float deltaLen = std::hypot(delta.x, delta.y);
-            if (deltaLen > 0) {
-                sf::Vector2f normalizedDelta = delta / deltaLen;
-                m_shape.move(normalizedDelta * step);
-            }
-        }
-    }
-    m_drawPos = m_shape.getPosition();
 }
 
 sf::Vector2f Clyde::calculateTarget(const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection,

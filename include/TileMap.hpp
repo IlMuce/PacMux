@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <fstream>
+#include <algorithm> // Per std::count
 
 class TileMap : public sf::Drawable, public sf::Transformable {
 public:
@@ -23,6 +24,27 @@ public:
 
     // ← Getter per leggere la griglia di caratteri (per trovare 'P')
     const std::vector<std::string>& getData() const { return m_data; }
+
+    // Ritorna true se la cella contiene un Super Pellet ('S')
+    bool isSuperPellet(unsigned x, unsigned y) const {
+        return m_data[y][x] == 'S';
+    }
+
+    // Raccoglie (rimuove) un Super Pellet dalla cella, se presente
+    void collectSuperPellet(unsigned x, unsigned y) {
+        if (m_data[y][x] == 'S') {
+            m_data[y][x] = '0';
+        }
+    }
+
+    // Conta i Super Pellet rimasti sulla mappa
+    int countSuperPellets() const {
+        int count = 0;
+        for (const auto& row : m_data) {
+            count += std::count(row.begin(), row.end(), 'S');
+        }
+        return count;
+    }
 
 private:
     void draw(sf::RenderTarget& target, sf::RenderStates states) const override;

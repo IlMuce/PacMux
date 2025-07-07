@@ -82,7 +82,7 @@ L’eseguibile verrà generato in `build/Release/PacmanMVP.exe` e dovrà essere 
 - I pellet non vengono generati nella ghost house né nella cella di spawn di Pac-Man.
 - Tutte le transizioni avvengono senza chiudere la finestra di gioco.
 
-## Funzionalità della Release 4 (COMPLETATA)
+## Funzionalità della Release 4
 
 - **Mappa fedele all'originale**: Aggiornata `map1.txt` con dimensioni e layout più vicini al Pac-Man classico.
 - **Tile speciali**: Introdotti tile '2' per spazi vuoti senza pellet (es: tunnel, aree speciali).
@@ -93,14 +93,15 @@ L’eseguibile verrà generato in `build/Release/PacmanMVP.exe` e dovrà essere 
 - **AI fedele all'originale**: Blinky insegue Pac-Man, Pinky mira 4 celle avanti, entrambi con pathfinding greedy (distanza euclidea, tie-breaking Up>Left>Down>Right, no inversione immediata).
 - **Pronto per estensioni**: Struttura pronta per logiche uniche di Inky e Clyde, modalità frightened, animazioni, ecc.
 
-## Prossime Release (Roadmap)
+### Funzionalità della Release 5 (COMPLETATA)
+- I fantasmi entrano in modalità frightened (blu, movimento casuale e rallentato) quando Pac-Man mangia un Super Pellet.
+- I fantasmi possono essere mangiati da Pac-Man in modalità frightened: diventano "occhi", tornano alla ghost house, attendono e poi respawnano normalmente.
+- Implementato il timer frightened, con effetto lampeggiante prima della fine.
+- Tutti i fantasmi (Blinky, Pinky, Inky, Clyde) condividono la stessa logica di frightened/eaten/respawn, senza duplicazione di codice.
+- Alternanza classica scatter/chase con timer configurabili e debug log dettagliato.
+- Reset completo degli stati dei fantasmi su game over o vittoria.
 
-### Release 5: AI Complete & Power-Up
-- **Blinky**: Reintrodurre modalità scatter con timing corretto
-- **Inky**: AI collaborativa basata su Blinky e Pac-Man
-- **Clyde**: AI che alterna inseguimento e fuga
-- **State Machine**: Implementare correttamente Chase/Scatter con timing
-- **Power Pellet**: Fantasmi vulnerabili, modalità frightened, ritorno alla ghost house
+## Prossime Release (Roadmap)
 
 ### Release 6: Levels & Progression
 - Sistema multi-livello con difficoltà crescente

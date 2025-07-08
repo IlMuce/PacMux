@@ -31,22 +31,26 @@ sf::Vector2f Inky::calculateTarget(const sf::Vector2f& pacmanPos, const sf::Vect
     return calculateTarget(pacmanPos, pacmanDirection, map, tileSize, sf::Vector2f(0,0));
 }
 
-// Overloaded update: uses Blinky's position for targeting
+// Overloaded update: uses Blinky's position for targeting and release logic
 void Inky::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
                   const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, Mode mode,
-                  const sf::Vector2f& blinkyPos) {
-    // Se è in stato eaten/returning, lascia che la base gestisca tutto!
-    if (m_eaten || m_isReturningToHouse) {
-        Ghost::update(dt, map, tileSize, pacmanPos, pacmanDirection, mode);
+                  const sf::Vector2f& blinkyPos, bool gameStarted, bool released) {
+    if (!m_released) {
+        m_drawPos = m_shape.getPosition();
         return;
     }
-    static float debugTimer = 0.f;
+    // Se è in stato eaten/returning, lascia che la base gestisca tutto!
+    if (m_eaten || m_isReturningToHouse) {
+        Ghost::update(dt, map, tileSize, pacmanPos, pacmanDirection, mode, gameStarted);
+        return;
+    }
     m_mode = mode;
     sf::Vector2f pos = m_shape.getPosition();
     float cx = std::round((pos.x - tileSize.x/2.f) / tileSize.x);
     float cy = std::round((pos.y - tileSize.y/2.f) / tileSize.y);
     int sx = int(std::round(cx));
     int sy = int(std::round(cy));
+    static float debugTimer = 0.f;
     debugTimer += dt;
     std::string modeStr = (m_mode == Mode::Chase) ? "Chase" : (m_mode == Mode::Scatter) ? "Scatter" : "Other";
     sf::Vector2f target = calculateTarget(pacmanPos, pacmanDirection, map, tileSize, blinkyPos);
@@ -70,7 +74,7 @@ void Inky::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
             else if (nextX >= w) nextX = 0;
         }
         if (nextX >= 0 && nextX < w && nextY >= 0 && nextY < h && canMove(m_direction, map, tileSize)) {
-            sf::Vector2f dest{nextX * float(tileSize.x) + tileSize.x/2.f, nextY * float(tileSize.y) + tileSize.y/2.f};
+            sf::Vector2f dest{nextX * float(tileSize.x) + tileSize.x/2.f, nextY * float(tileSize.y) + float(tileSize.y/2.f)};
             sf::Vector2f delta = dest - m_shape.getPosition();
             float step = m_speed * dt;
             if (std::hypot(delta.x, delta.y) <= step) {
@@ -86,6 +90,6 @@ void Inky::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
         m_drawPos = m_shape.getPosition();
     } else {
         // Comportamento normale: delega alla base
-        Ghost::update(dt, map, tileSize, pacmanPos, pacmanDirection, mode);
+        Ghost::update(dt, map, tileSize, pacmanPos, pacmanDirection, mode, gameStarted);
     }
 }

@@ -22,7 +22,7 @@ public:
     virtual ~Ghost() = default;
 
     virtual void update(float dt, const TileMap& map, const sf::Vector2u& tileSize, 
-                       const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, Mode mode);
+                       const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, Mode mode, bool gameStarted = true);
     virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const override;
     
     void setPosition(const sf::Vector2f& pos);
@@ -39,6 +39,18 @@ public:
     void setEaten(bool eaten);
     bool isEaten() const { return m_eaten; }
     bool isReturningToHouse() const { return m_isReturningToHouse; }
+
+    void setSpeed(float speed) { m_speed = speed; }
+    void setReleaseDelay(float delay) { m_releaseDelay = delay; m_canLeaveHouse = false; }
+
+    // --- RELEASE STATE ---
+    void setReleased(bool released) { 
+        m_released = released; 
+        m_canLeaveHouse = released; // Simply allow/disallow leaving based on release state
+    }
+    bool isReleased() const { return m_released; }
+    // True se il fantasma ha lasciato la ghost house (già presente: hasLeftGhostHouse)
+    bool hasLeftHouse() const { return m_hasLeftGhostHouse; }
 
     static const char* getTypeName(Type type) {
         switch(type) {
@@ -80,8 +92,9 @@ protected:
     float m_respawnTimer = 0.f;
     float m_respawnDuration = 3.f; // seconds in ghost house after being eaten
 
-    // Ghost release timer (per ghost)
-    float m_releaseTimer = 0.f;
-    float m_releaseDelay = 0.f; // quanto deve aspettare prima di poter uscire
+    // Ghost release state
+    float m_releaseDelay = 0.f; // quanto deve aspettare prima di poter uscire (for reference only)
     bool m_canLeaveHouse = false;
+
+    bool m_released = false;
 };

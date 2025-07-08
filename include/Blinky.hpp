@@ -6,7 +6,7 @@ class Blinky : public Ghost {
 public:
     Blinky(const sf::Vector2f& pos);
     void update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
-                const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, Mode mode) override;
+                const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, Mode mode, bool gameStarted = true) override;
     
 protected:
     sf::Vector2f calculateTarget(const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, 

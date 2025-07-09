@@ -10,6 +10,7 @@ Player::Player(float speed, const sf::Vector2f& startPos, const sf::Vector2u& ti
     , m_direction{0.f, 0.f}
     , m_nextDirection{0.f, 0.f}
     , m_tileSize(tileSize)
+    , m_lives(3)  // Inizializza con 3 vite
 {
     m_shape.setFillColor(sf::Color::Yellow);
     m_shape.setOrigin(sf::Vector2f(m_shape.getRadius(), m_shape.getRadius()));

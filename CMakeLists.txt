@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(PacmanR7 LANGUAGES CXX)
+project(PacmanR8 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -10,8 +10,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Opzionale: forza definizione per find_package
 #set(SFML_STATIC_LIBRARIES TRUE)
 
-# Trova SFML 3, richiedendo i componenti Graphics, Window e System
-find_package(SFML 3 REQUIRED COMPONENTS Graphics Window System)
+# Trova SFML 3, richiedendo i componenti Graphics, Window, System e Audio
+find_package(SFML 3 REQUIRED COMPONENTS Graphics Window System Audio)
 
 add_executable(${PROJECT_NAME}
     src/main.cpp
@@ -38,5 +38,5 @@ target_include_directories(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME}
-    PRIVATE SFML::Graphics SFML::Window SFML::System
+    PRIVATE SFML::Graphics SFML::Window SFML::System SFML::Audio
 )

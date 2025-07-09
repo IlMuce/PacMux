@@ -69,3 +69,9 @@ Thumbs.db
 # Logs
 # ------------------------
 *.log
+
+# ------------------------
+# Game data files
+# ------------------------
+# File di salvataggio highscore locale (Release 9)
+highscores.json

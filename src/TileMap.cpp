@@ -35,10 +35,12 @@ bool TileMap::load(const std::string& filename, const sf::Vector2u& tileSize) {
                     static_cast<float>(y * tileSize.y)
                 )
             );
-            // Colora i muri ('1') di blu chiaro, oppure viola se la mappa è map2.txt
+            // Colora i muri ('1') di blu chiaro, oppure viola se la mappa è map2.txt, oppure arancione se è map3.txt
             sf::Color wallColor = sf::Color(0, 120, 255); // blu chiaro Pac-Man classico
             if (m_filename.find("map2.txt") != std::string::npos) {
                 wallColor = sf::Color(200, 0, 255); // viola Ms. Pac-Man
+            } else if (m_filename.find("map3.txt") != std::string::npos) {
+                wallColor = sf::Color(255, 180, 100); // arancione chiaro Ms. Pac-Man style
             }
             if (m_data[y][x] == '1') {
                 tile.setFillColor(wallColor);

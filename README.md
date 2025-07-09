@@ -6,10 +6,18 @@ Questo repository contiene una versione base funzionante (MVP, Minimum Viable Pr
 
 ```
 pacman-sfml/
-├── assets/            # Risorse di gioco (mappe, font)
+├── assets/            # Risorse di gioco (mappe, font, audio)
 │   ├── map1.txt       # Livello 1
 │   ├── map2.txt       # Livello 2
-│   └── pacman.ttf     # Font del gioco
+│   ├── pacman.ttf     # Font del gioco
+│   ├── pacman_beginning.wav      # Musica di sottofondo
+│   ├── PacmanChomp.mp3          # Suono "wakawakawaka"
+│   ├── pacman_eatghost.wav      # Suono mangiare fantasmi
+│   ├── pacman_death.wav         # Suono morte Pac-Man
+│   ├── pacman_menupausa.wav     # Suono menu/pausa
+│   ├── GhostTurntoBlue.mp3      # Suono fantasmi blu (Super Pellet)
+│   ├── GhostReturntoHome.mp3    # Suono ritorno fantasmi alla casa
+│   └── GhostNormalMove.mp3      # Suono movimento normale fantasmi
 ├── include/           # Header C++ (tutti gli .hpp)
 │   ├── Blinky.hpp     # AI Blinky
 │   ├── Pinky.hpp      # AI Pinky

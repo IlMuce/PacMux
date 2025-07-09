@@ -302,7 +302,12 @@ int main()
         // Reset ghost release state sequenziale
         nextGhostToRelease = 0;
         ghostReleaseTimer = 0.f;
+        
+        // Salva le vite attuali prima di creare un nuovo Player
+        int currentLives = pac.getLives();
         pac = Player(120.f, startPos, tileSize);
+        pac.setLives(currentLives); // Ripristina le vite salvate
+        
         // NON resettare score qui - mantieni il punteggio tra i livelli
         // score = std::make_unique<Score>(fontPath.string());
     };
@@ -711,6 +716,8 @@ int main()
 
             // Controlla se è stata raggiunta una vita extra
             if (score->checkExtraLife()) {
+                // Ferma Pac-Man per evitare che esca dalla mappa durante il messaggio
+                pac.stopMovement();
                 pac.setLives(pac.getLives() + 1);
                 showMessage(window, "VITA EXTRA!\n\nHai raggiunto 10.000 punti!\n\nVite: " + std::to_string(pac.getLives()), fontPath.string());
             }

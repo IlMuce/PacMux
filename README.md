@@ -58,14 +58,14 @@ cmake .. -G "Visual Studio 17 2022" -A x64
 cmake --build . --config Release
 ```
 
-L’eseguibile verrà generato in `build/Release/PacmanMVP.exe` e dovrà essere eseguito dalla cartella `build/Release`, affinché trovi la cartella `assets` al suo fianco.
+L’eseguibile verrà generato in `build/Release/Pacman.exe` e dovrà essere eseguito dalla cartella `build/Release`, affinché trovi la cartella `assets` al suo fianco.
 
 ## Come si gioca
 
 - **Freccia sinistra/destra/su/giù**: muovi Pac-Man lungo i corridoi a griglia.
-- Raccogli tutti i pellet per terminare il livello.
-- **Evita i fantasmi**: Se Blinky (rosso) ti tocca, la partita si resetta.
-- Il punteggio aumenta di 10 punti per pellet.
+- Raccogli tutti i pellet per avanzare di livello.
+- **Evita i fantasmi**: Se un fantasma ti tocca, perdi una vita. Se perdi tutte le vite é game over.
+- Il punteggio aumenta di 10 punti per pellet, 200 punti per fantasma mangiato.
 - Usa i tunnel laterali per sfuggire ai fantasmi con il wrap-around.
 
 ## Funzionalità della Release 1
@@ -126,7 +126,7 @@ L’eseguibile verrà generato in `build/Release/PacmanMVP.exe` e dovrà essere 
 - Vita extra una volta raggiunti 10k punti.
 - Aggiunta possibilitá di compilazione con dll statici (non serve averli inclusi nel PATH di sistema).
 
-### Funzionalità della Release 8 (COMPLETATA)
+### Funzionalità della Release 8
 - Integrazione con SFML audio.
 - RIEPILOGO DEGLI 8 SUONI IMPLEMENTATI:
     1. pacman_beginning.wav - Musica di sottofondo (una volta per partita)
@@ -139,11 +139,12 @@ L’eseguibile verrà generato in `build/Release/PacmanMVP.exe` e dovrà essere 
     8. GhostNormalMove.mp3 - Movimento normale dei fantasmi (loop continuo)
 - Aggiunta possibilità di modificare livelli audio di ciascun suono.
 
-## Prossime Release (Roadmap)
+### Funzionalità della Release 9 (COMPLETATA)
+- **Sistema Highscore completo**: Top 10 persistente con input nome giocatore e schermata Hall of Fame
+- **Mappa 3 con tema arancione**: Stile Ms. Pac-Man con colori arancione chiaro
+- **Bug fix critici**: Risolti chomp infinito, highscore dopo 7° record, parser JSON robusto
 
-## Release 9: Salvataggio highscore + schermata dei record
-- File locale (JSON o TXT), visualizzazione dei record.
-- Aggiunta terza mappa.
+## Prossime Release (Roadmap)
 
 ## Release 10: Polish finale
 - Animazioni, sprite, effetti particellari, transizioni, ottimizzazioni, bugfix, refactoring.

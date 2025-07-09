@@ -6,11 +6,14 @@
 #include <memory>
 #include <string>
 #include <iostream>          // Per il log di debug
+#include <cstdint>           // Per std::uint32_t
+#include <cctype>            // Per std::isalnum, std::toupper
 
 #include "TileMap.hpp"
 #include "Player.hpp"
 #include "Pellet.hpp"
 #include "Score.hpp"
+#include "HighScore.hpp"
 #include "Blinky.hpp"
 #include "Pinky.hpp"
 #include "Inky.hpp"
@@ -78,6 +81,99 @@ void showMessage(sf::RenderWindow& window, const std::string& message, const std
             exit(0);
         }
     }
+}
+
+// Funzione per inserire il nome del giocatore per un nuovo record
+std::string inputPlayerName(sf::RenderWindow& window, const std::string& fontPath, unsigned int finalScore) {
+    sf::Font font(fontPath);
+    std::string playerName;
+    sf::Clock blinkClock;
+    bool showCursor = true;
+    
+    while (true) { // Ciclo infinito controllato internamente
+        window.clear(sf::Color::Black);
+        
+        // Titolo
+        sf::Text titleText(font, "NUOVO RECORD!", 36);
+        titleText.setFillColor(sf::Color::Yellow);
+        titleText.setOutlineColor(sf::Color::Red);
+        titleText.setOutlineThickness(2);
+        sf::FloatRect titleBounds = titleText.getLocalBounds();
+        titleText.setPosition(sf::Vector2f((window.getSize().x - titleBounds.size.x) / 2.0f, window.getSize().y * 0.2f));
+        window.draw(titleText);
+        
+        // Punteggio
+        sf::Text scoreText(font, "Punteggio: " + std::to_string(finalScore), 24);
+        scoreText.setFillColor(sf::Color::Cyan);
+        sf::FloatRect scoreBounds = scoreText.getLocalBounds();
+        scoreText.setPosition(sf::Vector2f((window.getSize().x - scoreBounds.size.x) / 2.0f, window.getSize().y * 0.35f));
+        window.draw(scoreText);
+        
+        // Prompt
+        sf::Text promptText(font, "Inserisci il tuo nome:", 20);
+        promptText.setFillColor(sf::Color::White);
+        sf::FloatRect promptBounds = promptText.getLocalBounds();
+        promptText.setPosition(sf::Vector2f((window.getSize().x - promptBounds.size.x) / 2.0f, window.getSize().y * 0.5f));
+        window.draw(promptText);
+        
+        // Nome corrente + cursore lampeggiante
+        std::string displayName = playerName;
+        if (showCursor && blinkClock.getElapsedTime().asSeconds() < 0.5f) {
+            displayName += "_";
+        } else if (blinkClock.getElapsedTime().asSeconds() >= 1.0f) {
+            blinkClock.restart();
+            showCursor = !showCursor;
+        }
+        
+        sf::Text nameText(font, displayName, 24);
+        nameText.setFillColor(sf::Color::Green);
+        sf::FloatRect nameBounds = nameText.getLocalBounds();
+        nameText.setPosition(sf::Vector2f((window.getSize().x - nameBounds.size.x) / 2.0f, window.getSize().y * 0.6f));
+        window.draw(nameText);
+        
+        // Istruzioni
+        sf::Text instructText(font, "Premi INVIO per confermare", 16);
+        instructText.setFillColor(sf::Color(128, 128, 128));
+        sf::FloatRect instructBounds = instructText.getLocalBounds();
+        instructText.setPosition(sf::Vector2f((window.getSize().x - instructBounds.size.x) / 2.0f, window.getSize().y * 0.8f));
+        window.draw(instructText);
+        
+        window.display();
+        
+        auto event = window.waitEvent();
+        if (!event) continue;
+        
+        if (event->is<sf::Event::KeyPressed>()) {
+            if (auto keyEvent = event->getIf<sf::Event::KeyPressed>()) {
+                if (keyEvent->code == sf::Keyboard::Key::Enter) {
+                    if (playerName.empty()) {
+                        playerName = "PLAYER"; // Nome predefinito se vuoto
+                    }
+                    return playerName;
+                } else if (keyEvent->code == sf::Keyboard::Key::Backspace) {
+                    if (!playerName.empty()) {
+                        playerName.pop_back();
+                    }
+                }
+            }
+        } else if (event->is<sf::Event::TextEntered>()) {
+            if (auto textEvent = event->getIf<sf::Event::TextEntered>()) {
+                std::uint32_t unicode = textEvent->unicode;
+                // Accetta solo caratteri alfanumerici e spazi (max 10 caratteri)
+                if (unicode >= 32 && unicode < 127 && unicode != 127 && playerName.length() < 10) { // ASCII stampabili escluso DEL
+                    char character = static_cast<char>(unicode);
+                    if (std::isalnum(character) || character == ' ') {
+                        playerName += std::toupper(character); // Converti in maiuscolo
+                    }
+                }
+            }
+        } else if (event->is<sf::Event::Closed>()) {
+            window.close();
+            return "PLAYER";
+        }
+    }
+    
+    return playerName.empty() ? "PLAYER" : playerName;
 }
 
 int main()
@@ -149,8 +245,18 @@ int main()
 
     // Carica il font e inizializza il punteggio
     std::unique_ptr<Score> score;
+    std::unique_ptr<HighScore> highScore;
+    
+    // Determina il percorso del file highscore (nella stessa directory dell'eseguibile)
+    fs::path highscorePath = exeDir / "highscores.json";
+    
     try {
         score = std::make_unique<Score>(fontPath.string());
+        highScore = std::make_unique<HighScore>(fontPath.string());
+        
+        // Carica i record esistenti dal percorso corretto
+        highScore->loadFromFile(highscorePath.string());
+        
     } catch (const std::exception& e) {
         MessageBoxA(NULL, e.what(), "Errore Pacman", MB_OK|MB_ICONERROR);
         return EXIT_FAILURE;
@@ -164,9 +270,12 @@ int main()
     music.setLooping(false); // SFML 3: musica suona una volta sola
     // NON avviare la musica qui - sarà avviata quando inizia il gameplay
 
-    sf::SoundBuffer bufChomp, bufEatGhost, bufDeath, bufMenu, bufGhostBlue, bufGhostReturn, bufGhostNormal;
+    sf::SoundBuffer bufChomp, bufChompMenu, bufEatGhost, bufDeath, bufMenu, bufGhostBlue, bufGhostReturn, bufGhostNormal;
     if (!bufChomp.loadFromFile((assets / "PacmanChomp.mp3").string())) {
         std::cerr << "[AUDIO] Errore caricamento effetto chomp!\n";
+    }
+    if (!bufChompMenu.loadFromFile((assets / "pacman_chomp.wav").string())) {
+        std::cerr << "[AUDIO] Errore caricamento effetto chomp menu!\n";
     }
     if (!bufEatGhost.loadFromFile((assets / "pacman_eatghost.wav").string())) {
         std::cerr << "[AUDIO] Errore caricamento effetto eat ghost!\n";
@@ -189,23 +298,28 @@ int main()
 
     // === RIEPILOGO DEGLI 8 SUONI IMPLEMENTATI ===
     // 1. pacman_beginning.wav - Musica di sottofondo (una volta per partita)
-    // 2. pacman_chomp.wav - Suono "wakawakawaka" + navigazione menu
-    // 3. pacman_eatghost.wav - Mangiare fantasmi + conferma selezioni menu
-    // 4. pacman_death.wav - Morte di Pac-Man
-    // 5. pacman_menupausa.wav - Suono pausa + ritorno al menu da Game Over
-    // 6. GhostTurntoBlue.mp3 - Quando i fantasmi diventano blu (Super Pellet)
-    // 7. GhostReturntoHome.mp3 - Fantasmi che tornano alla casa (dopo essere stati mangiati)
-    // 8. GhostNormalMove.mp3 - Movimento normale dei fantasmi (loop continuo)
+    // 2. PacmanChomp.mp3 - Suono "wakawakawaka" durante il gioco (loop continuo)
+    // 3. pacman_chomp.wav - Suono per navigazione menu (breve, non in loop)
+    // 4. pacman_eatghost.wav - Mangiare fantasmi + conferma selezioni menu
+    // 5. pacman_death.wav - Morte di Pac-Man
+    // 6. pacman_menupausa.wav - Suono pausa + ritorno al menu da Game Over
+    // 7. GhostTurntoBlue.mp3 - Quando i fantasmi diventano blu (Super Pellet)
+    // 8. GhostReturntoHome.mp3 - Fantasmi che tornano alla casa (dopo essere stati mangiati)
+    // 9. GhostNormalMove.mp3 - Movimento normale dei fantasmi (loop continuo)
 
-    sf::Sound sfxChomp(bufChomp), sfxEatGhost(bufEatGhost), sfxDeath(bufDeath), sfxMenu(bufMenu), sfxGhostBlue(bufGhostBlue), sfxGhostReturn(bufGhostReturn), sfxGhostNormal(bufGhostNormal);
+    sf::Sound sfxChomp(bufChomp), sfxChompMenu(bufChompMenu), sfxEatGhost(bufEatGhost), sfxDeath(bufDeath), sfxMenu(bufMenu), sfxGhostBlue(bufGhostBlue), sfxGhostReturn(bufGhostReturn), sfxGhostNormal(bufGhostNormal);
 
     // Imposta il chomp in loop per suono continuo come l'arcade originale
     sfxChomp.setLooping(true); // Il chomp sarà un loop continuo
+    
+    // Il suono menu chomp NON è in loop (perfetto per navigazione)
+    // sfxChompMenu è già configurato per navigazione menu
     sfxGhostNormal.setLooping(true); // SFML 3: setLoop() → setLooping()
     sfxGhostReturn.setLooping(true); // Anche il suono di ritorno alla casa in loop
     
     // === CONTROLLO VOLUME AUDIO ===
     sfxChomp.setVolume(60.f); // Riduci volume chomp (0-100)
+    sfxChompMenu.setVolume(60.f); // Volume per navigazione menu
     sfxGhostNormal.setVolume(25.f); // Volume molto ridotto fantasmi
     sfxGhostReturn.setVolume(35.f); // Volume ridotto per ritorno
     sfxGhostBlue.setVolume(80.f); // Volume normale per effetti speciali
@@ -305,7 +419,7 @@ int main()
     const int NUM_PAUSE_OPTIONS = 2;
 
     // --- GESTIONE MULTI-LIVELLO ---
-    std::vector<std::string> mapFiles = {"map1.txt", "map2.txt"};
+    std::vector<std::string> mapFiles = {"map1.txt", "map2.txt", "map3.txt"};
     int currentLevel = 0;
     bool allMapsCompleted = false;
     int difficultyLevel = 1;
@@ -395,11 +509,23 @@ int main()
     sf::Clock clock;
     bool gameOver = false;
     bool gameStarted = false;
+    bool recordChecked = false; // Flag per controllare se il record è già stato verificato
     while (window.isOpen()) {
         float dt = clock.restart().asSeconds();
 
         // --- Gestione stati di gioco ---
         if (gameState == GameState::GAME_OVER) {
+            // Controlla se è stato raggiunto un nuovo record
+            if (!recordChecked) {
+                unsigned int finalScore = score->getScore();
+                if (highScore->isHighScore(finalScore)) {
+                    // Nuovo record! Chiedi il nome del giocatore
+                    std::string playerName = inputPlayerName(window, fontPath.string(), finalScore);
+                    highScore->addScore(playerName, finalScore);
+                }
+                recordChecked = true;
+            }
+            
             // Mostra schermata Game Over
             window.clear(sf::Color::Black);
             sf::Font font(fontPath.string());
@@ -411,20 +537,37 @@ int main()
             gameOverText.setPosition(sf::Vector2f(window.getSize().x * 0.18f, window.getSize().y * 0.15f));
             window.draw(gameOverText);
             
-            sf::Text scoreText(font, "Punteggio: " + std::to_string(score->getScore()), 24);
+            unsigned int finalScore = score->getScore();
+            sf::Text scoreText(font, "Punteggio finale: " + std::to_string(finalScore), 24);
             scoreText.setFillColor(sf::Color::Yellow);
-            scoreText.setPosition(sf::Vector2f(window.getSize().x * 0.25f, window.getSize().y * 0.35f));
+            scoreText.setPosition(sf::Vector2f(window.getSize().x * 0.2f, window.getSize().y * 0.35f));
             window.draw(scoreText);
+            
+            // Mostra se è stato raggiunto un nuovo record
+            if (highScore->isHighScore(finalScore) || finalScore == highScore->getTopScore()) {
+                sf::Text recordText(font, "NUOVO RECORD!", 28);
+                recordText.setFillColor(sf::Color(255, 215, 0)); // Oro
+                recordText.setOutlineColor(sf::Color::Red);
+                recordText.setOutlineThickness(2);
+                sf::FloatRect recordBounds = recordText.getLocalBounds();
+                recordText.setPosition(sf::Vector2f((window.getSize().x - recordBounds.size.x) / 2.0f, window.getSize().y * 0.42f));
+                window.draw(recordText);
+            }
             
             sf::Text restartText(font, "Premi INVIO per ricominciare", 20);
             restartText.setFillColor(sf::Color::White);
-            restartText.setPosition(sf::Vector2f(window.getSize().x * 0.12f, window.getSize().y * 0.5f));
+            restartText.setPosition(sf::Vector2f(window.getSize().x * 0.12f, window.getSize().y * 0.55f));
             window.draw(restartText);
             
             sf::Text menuText(font, "Premi M o ESC per tornare al menu", 20);
             menuText.setFillColor(sf::Color::Cyan);
             menuText.setPosition(sf::Vector2f(window.getSize().x * 0.08f, window.getSize().y * 0.65f));
             window.draw(menuText);
+            
+            sf::Text highscoreText(font, "Premi H per vedere i record", 20);
+            highscoreText.setFillColor(sf::Color::Magenta);
+            highscoreText.setPosition(sf::Vector2f(window.getSize().x * 0.12f, window.getSize().y * 0.75f));
+            window.draw(highscoreText);
             
             window.display();
             
@@ -449,6 +592,7 @@ int main()
                         currentLevel = 0;
                         score->resetScore();
                         pac.setLives(3);
+                        recordChecked = false; // Reset del flag per il prossimo game over
                         loadLevel(0);
                         continue;
                     } else if (keyEvent->code == sf::Keyboard::Key::M || keyEvent->code == sf::Keyboard::Key::Escape) {
@@ -459,9 +603,15 @@ int main()
                         ghostSoundPlaying = false;
                         canPlayGhostSounds = false;
                         chompActive = false;
-                        sfxChomp.setVolume(0.f); // Silenzia il chomp
+                        sfxChomp.stop(); // Ferma completamente il chomp quando si torna al menu
+                        chompSoundStarted = false; // Reset del flag
                         // Torna al menu - MANTIENI il punteggio per ora
+                        recordChecked = false; // Reset del flag
                         gameState = GameState::MENU;
+                        continue;
+                    } else if (keyEvent->code == sf::Keyboard::Key::H) {
+                        sfxEatGhost.play(); // Suono di navigazione
+                        gameState = GameState::HIGHSCORE;
                         continue;
                     }
                 }
@@ -548,13 +698,13 @@ int main()
                 if (auto keyEvent = event->getIf<sf::Event::KeyPressed>()) {
                     if (keyEvent->code == sf::Keyboard::Key::Up) {
                         if (menuSoundCooldown.getElapsedTime().asMilliseconds() > 100) {
-                            sfxChomp.play(); // Suono di navigazione menu
+                            sfxChompMenu.play(); // Suono di navigazione menu (non in loop)
                             menuSoundCooldown.restart();
                         }
                         selectedMenuOption = static_cast<MenuOption>((static_cast<int>(selectedMenuOption) - 1 + NUM_MENU_OPTIONS) % NUM_MENU_OPTIONS);
                     } else if (keyEvent->code == sf::Keyboard::Key::Down) {
                         if (menuSoundCooldown.getElapsedTime().asMilliseconds() > 100) {
-                            sfxChomp.play(); // Suono di navigazione menu
+                            sfxChompMenu.play(); // Suono di navigazione menu (non in loop)
                             menuSoundCooldown.restart();
                         }
                         selectedMenuOption = static_cast<MenuOption>((static_cast<int>(selectedMenuOption) + 1) % NUM_MENU_OPTIONS);
@@ -564,6 +714,11 @@ int main()
                             case MenuOption::PLAY:
                                 // Inizia una nuova partita
                                 gameState = GameState::PLAYING;
+                                
+                                // Reset del suono chomp per nuova partita
+                                chompActive = false;
+                                sfxChomp.stop();
+                                chompSoundStarted = false;
                                 
                                 // Avvia la musica di sottofondo solo se non è già stata avviata
                                 if (!musicStarted) {
@@ -577,6 +732,7 @@ int main()
                                 currentLevel = 0;
                                 score->resetScore();
                                 pac.setLives(3);
+                                recordChecked = false; // Reset del flag per il prossimo game over
                                 loadLevel(0);
                                 break;
                             case MenuOption::HIGHSCORE:
@@ -600,32 +756,11 @@ int main()
         }
 
         if (gameState == GameState::HIGHSCORE) {
-            // Mostra schermata dei record
+            // Mostra schermata dei record usando la classe HighScore
             window.clear(sf::Color::Black);
-            sf::Font font(fontPath.string());
             
-            sf::Text titleText(font, "RECORD", 48);
-            titleText.setFillColor(sf::Color::Yellow);
-            titleText.setOutlineColor(sf::Color::Blue);
-            titleText.setOutlineThickness(3);
-            titleText.setPosition(sf::Vector2f(window.getSize().x * 0.35f, window.getSize().y * 0.15f));
-            window.draw(titleText);
-            
-            // Placeholder per i record (da implementare)
-            sf::Text recordText(font, "Punteggio migliore: " + std::to_string(score->getScore()), 24);
-            recordText.setFillColor(sf::Color::White);
-            recordText.setPosition(sf::Vector2f(window.getSize().x * 0.18f, window.getSize().y * 0.4f));
-            window.draw(recordText);
-            
-            sf::Text noRecordsText(font, "Sistema record da implementare!", 20);
-            noRecordsText.setFillColor(sf::Color(128, 128, 128)); // Grigio
-            noRecordsText.setPosition(sf::Vector2f(window.getSize().x * 0.2f, window.getSize().y * 0.5f));
-            window.draw(noRecordsText);
-            
-            sf::Text backText(font, "Premi ESC per tornare al menu", 18);
-            backText.setFillColor(sf::Color::Cyan);
-            backText.setPosition(sf::Vector2f(window.getSize().x * 0.18f, window.getSize().y * 0.75f));
-            window.draw(backText);
+            // Disegna la schermata dei record
+            highScore->draw(window, window.getSize());
             
             window.display();
             
@@ -641,7 +776,8 @@ int main()
                         ghostSoundPlaying = false;
                         canPlayGhostSounds = false;
                         chompActive = false;
-                        sfxChomp.setVolume(0.f); // Silenzia il chomp
+                        sfxChomp.stop(); // Ferma completamente il chomp quando si torna al menu
+                        chompSoundStarted = false; // Reset del flag
                         gameState = GameState::MENU;
                         continue;
                     }
@@ -713,13 +849,13 @@ int main()
                 if (auto keyEvent = event->getIf<sf::Event::KeyPressed>()) {
                     if (keyEvent->code == sf::Keyboard::Key::Up) {
                         if (menuSoundCooldown.getElapsedTime().asMilliseconds() > 100) {
-                            sfxChomp.play(); // Suono di navigazione menu pausa
+                            sfxChompMenu.play(); // Suono di navigazione menu pausa (non in loop)
                             menuSoundCooldown.restart();
                         }
                         selectedPauseOption = static_cast<PauseOption>((static_cast<int>(selectedPauseOption) - 1 + NUM_PAUSE_OPTIONS) % NUM_PAUSE_OPTIONS);
                     } else if (keyEvent->code == sf::Keyboard::Key::Down) {
                         if (menuSoundCooldown.getElapsedTime().asMilliseconds() > 100) {
-                            sfxChomp.play(); // Suono di navigazione menu pausa
+                            sfxChompMenu.play(); // Suono di navigazione menu pausa (non in loop)
                             menuSoundCooldown.restart();
                         }
                         selectedPauseOption = static_cast<PauseOption>((static_cast<int>(selectedPauseOption) + 1) % NUM_PAUSE_OPTIONS);
@@ -737,7 +873,8 @@ int main()
                                 ghostSoundPlaying = false;
                                 canPlayGhostSounds = false;
                                 chompActive = false;
-                                sfxChomp.setVolume(0.f); // Silenzia il chomp
+                                sfxChomp.stop(); // Ferma completamente il chomp quando si torna al menu
+                                chompSoundStarted = false; // Reset del flag
                                 // Torna al menu principale
                                 gameState = GameState::MENU;
                                 break;

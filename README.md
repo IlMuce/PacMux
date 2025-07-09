@@ -111,18 +111,27 @@ L’eseguibile verrà generato in `build/Release/PacmanMVP.exe` e dovrà essere 
 - Aggiunte scritte di vittoria e sconfitta con grafica SFML al posto di console windows
 - Cambiato font principale 
 
-### Funzionalità della Release 7 (COMPLETATA)
+### Funzionalità della Release 7
 - Gestione avanzata stati di gioco.
 - Aggiunta menu principale, menu di pausa, schermata Game Over.
 - HUD completo con visualizzazione punteggio, vite rimaste e livello attuale.
 - Vita extra una volta raggiunti 10k punti.
 - Aggiunta possibilitá di compilazione con dll statici (non serve averli inclusi nel PATH di sistema).
 
-## Prossime Release (Roadmap)
-
-## Release 8: Audio
-- Musica di sottofondo, effetti (mangiare, morte).
+### Funzionalità della Release 8 (COMPLETATA)
 - Integrazione con SFML audio.
+- RIEPILOGO DEGLI 8 SUONI IMPLEMENTATI:
+    1. pacman_beginning.wav - Musica di sottofondo (una volta per partita)
+    2. PacmanChomp.mp3 - Suono "wakawakawaka" + navigazione menu
+    3. pacman_eatghost.wav - Mangiare fantasmi + conferma selezioni menu
+    4. pacman_death.wav - Morte di Pac-Man
+    5. pacman_menupausa.wav - Suono pausa + ritorno al menu da Game Over
+    6. GhostTurntoBlue.mp3 - Quando i fantasmi diventano blu (Super Pellet)
+    7. GhostReturntoHome.mp3 - Fantasmi che tornano alla casa (dopo essere stati mangiati)
+    8. GhostNormalMove.mp3 - Movimento normale dei fantasmi (loop continuo)
+- Aggiunta possibilità di modificare livelli audio di ciascun suono.
+
+## Prossime Release (Roadmap)
 
 ## Release 9: Salvataggio highscore + schermata dei record
 - File locale (JSON o TXT), visualizzazione dei record.

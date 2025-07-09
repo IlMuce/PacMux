@@ -89,7 +89,7 @@ int main()
     fs::path exeDir = fs::path(buf).parent_path();
     fs::path assets = exeDir / "assets";
     fs::path mapPath = assets / "map1.txt";
-    fs::path fontPath = assets / "arial.ttf";
+    fs::path fontPath = assets / "pacman.ttf";
 
     // Verifica la presenza degli asset fondamentali
     if (!fs::exists(mapPath)) {

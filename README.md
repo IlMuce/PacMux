@@ -7,8 +7,9 @@ Questo repository contiene una versione base funzionante (MVP, Minimum Viable Pr
 ```
 pacman-sfml/
 ├── assets/            # Risorse di gioco (mappe, font)
-│   ├── map1.txt       # Mappa di esempio (ASCII)
-│   └── arial.ttf      # Font per il punteggio
+│   ├── map1.txt       # Livello 1
+│   ├── map2.txt       # Livello 2
+│   └── pacman.ttf     # Font del gioco
 ├── include/           # Header C++ (tutti gli .hpp)
 │   ├── Blinky.hpp     # AI Blinky
 │   ├── Pinky.hpp      # AI Pinky

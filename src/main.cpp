@@ -15,6 +15,68 @@
 #include "Inky.hpp"
 #include "Clyde.hpp"
 
+// Utility: mostra un messaggio grafico e attende INVIO (compatibile SFML 3)
+void showMessage(sf::RenderWindow& window, const std::string& message, const std::string& fontPath) {
+    sf::Font font(fontPath); // SFML 3: load font via constructor
+    sf::Text text(font, message, 20); // Font size ridotto per evitare tagli
+    text.setFillColor(sf::Color::Yellow);
+    text.setOutlineColor(sf::Color::Blue);
+    text.setOutlineThickness(2);
+    
+    // Calcola posizione per centrare meglio il testo
+    float windowWidth = static_cast<float>(window.getSize().x);
+    float windowHeight = static_cast<float>(window.getSize().y);
+    
+    // Posiziona il testo più in alto e con margini adeguati
+    float textX = windowWidth * 0.1f; // 10% dal bordo sinistro
+    float textY = windowHeight * 0.35f; // 35% dall'alto
+    text.setPosition({textX, textY});
+    
+    // Crea un rettangolo di sfondo in stile Pac-Man
+    sf::RectangleShape background;
+    background.setSize({windowWidth * 0.8f, windowHeight * 0.3f});
+    background.setPosition({windowWidth * 0.1f, windowHeight * 0.3f});
+    background.setFillColor(sf::Color::Black);
+    background.setOutlineColor(sf::Color::Blue);
+    background.setOutlineThickness(3);
+    
+    bool waiting = true;
+    while (waiting) {
+        window.clear(sf::Color::Black);
+        window.draw(background);
+        window.draw(text);
+        
+        // Aggiungi "PRESS ENTER" lampeggiante
+        static sf::Clock blinkClock;
+        if (blinkClock.getElapsedTime().asSeconds() < 0.5f) {
+            sf::Text pressEnter(font, "PRESS ENTER", 16);
+            pressEnter.setFillColor(sf::Color::White);
+            pressEnter.setPosition({windowWidth * 0.4f, windowHeight * 0.55f});
+            window.draw(pressEnter);
+        }
+        if (blinkClock.getElapsedTime().asSeconds() >= 1.0f) {
+            blinkClock.restart();
+        }
+        
+        window.display();
+        
+        auto event = window.waitEvent(); // SFML 3: returns std::optional<sf::Event>
+        if (!event) continue;
+        if (event->is<sf::Event::KeyPressed>()) {
+            // Access event data through the variant-like interface
+            if (auto keyEvent = event->getIf<sf::Event::KeyPressed>()) {
+                if (keyEvent->code == sf::Keyboard::Key::Enter) {
+                    waiting = false; // Exit the loop instead of breaking
+                }
+            }
+        }
+        if (event->is<sf::Event::Closed>()) {
+            window.close();
+            exit(0);
+        }
+    }
+}
+
 int main()
 {
     namespace fs = std::filesystem;
@@ -60,7 +122,7 @@ int main()
     if (startPos.y < 0) startPos.y += mapSz.y * tileSize.y;
     if (startPos.y >= mapSz.y * tileSize.y) startPos.y -= mapSz.y * tileSize.y;
 
-    sf::RenderWindow window(mode, "Pacman Release 1");
+    sf::RenderWindow window(mode, "Fake Pacman", sf::Style::Titlebar | sf::Style::Close);
     window.setFramerateLimit(60); // Ensure a consistent framerate
 
     // Trova la posizione di spawn di Pac-Man ('P') o usa il centro
@@ -176,14 +238,19 @@ int main()
     };
 
     // --- GESTIONE MULTI-LIVELLO ---
-    std::vector<std::string> mapFiles = {"map1.txt", "map2.txt"}; // Aggiungi qui altre mappe
+    std::vector<std::string> mapFiles = {"map1.txt", "map2.txt"};
     int currentLevel = 0;
+    bool allMapsCompleted = false;
+    int difficultyLevel = 1;
     float ghostBaseSpeed = 90.f;
     float frightenedBaseDuration = 6.0f;
+    std::vector<float> ghostReleaseDelays = {0.f, 3.f, 3.f, 3.f};
+    const float minFrightened = 1.5f;
+    const float minRelease = 0.5f;
     
     // --- GESTIONE RELEASE SEMPLICE E SEQUENZIALE DEI FANTASMI ---
     // Il primo esce subito, poi ogni X secondi il prossimo
-    std::vector<float> ghostReleaseDelays = {0.f, 3.f, 3.f, 3.f}; // solo il primo delay è assoluto, gli altri sono intervalli tra un rilascio e il successivo
+    //std::vector<float> ghostReleaseDelays = {0.f, 3.f, 3.f, 3.f}; // solo il primo delay è assoluto, gli altri sono intervalli tra un rilascio e il successivo
     int nextGhostToRelease = 0;
     float ghostReleaseTimer = 0.f;
     
@@ -235,14 +302,14 @@ int main()
         ghosts.push_back(std::make_unique<Pinky>(ghostStartPos[1]));
         ghosts.push_back(std::make_unique<Inky>(ghostStartPos[2]));
         ghosts.push_back(std::make_unique<Clyde>(ghostStartPos[3]));
-        // Aggiorna velocità e frightened in base al livello
-        float speed = ghostBaseSpeed + 10.f * levelIdx;
-        float frightenedDuration = std::max(2.0f, frightenedBaseDuration - 0.5f * levelIdx);
+        // Aggiorna velocità e frightened in base alla difficoltà
+        float speed = ghostBaseSpeed;
+        float frightenedDuration = frightenedBaseDuration;
         for (auto& g : ghosts) {
             g->setSpeed(speed);
             g->setFrightened(0.f);
             g->setEaten(false);
-            g->setReleased(false); // Ensure all ghosts start unreleased
+            g->setReleased(false);
         }
         // Reset ghost release state sequenziale
         nextGhostToRelease = 0;
@@ -346,13 +413,28 @@ int main()
                 // TODO: Attiva modalità Frightened per tutti i fantasmi
                 // for (auto& g : ghosts) g->setFrightened(...);
                 // Attiva modalità Frightened per tutti i fantasmi
-                for (auto& g : ghosts) g->setFrightened(std::max(2.0f, frightenedBaseDuration - 0.5f * currentLevel));
+                for (auto& g : ghosts) g->setFrightened(frightenedBaseDuration);
             }
 
             // Se tutti i pellet sono stati raccolti, mostra messaggio e passa al livello successivo
             if (pellets.empty()) {
-                MessageBoxA(NULL, "Hai raccolto tutti i pellet! Avanti al prossimo livello.", "Level Complete", MB_OK|MB_ICONINFORMATION);
                 currentLevel++;
+                if (currentLevel >= (int)mapFiles.size()) {
+                    // Tutte le mappe completate!
+                    showMessage(window, "CONGRATULATIONS!\n\nALL LEVELS COMPLETED!\n\nDIFFICULTY INCREASED!", fontPath.string());
+                    difficultyLevel++;
+                    currentLevel = 0;
+                    // Aumenta la velocità dei fantasmi per la nuova difficoltà
+                    ghostBaseSpeed = 90.f * (1.0f + 0.1f * (difficultyLevel-1));
+                    // Diminuisci frightened (minimo 1.5s)
+                    frightenedBaseDuration = std::max<float>(minFrightened, 6.0f * std::pow(0.9f, float(difficultyLevel-1)));
+                    // Diminuisci tempi di rilascio (minimo 0.5s, il primo resta 0)
+                    for (size_t i = 1; i < ghostReleaseDelays.size(); ++i) {
+                        ghostReleaseDelays[i] = std::max<float>(minRelease, 3.f * std::pow(0.9f, float(difficultyLevel-1)));
+                    }
+                } else {
+                    showMessage(window, "LEVEL COMPLETE!\n\nWELL DONE!", fontPath.string());
+                }
                 loadLevel(currentLevel);
                 gameOver = true;
             }
@@ -364,27 +446,14 @@ int main()
                 float minDist = 24.f * 24.f; // raggio Pac-Man + raggio Ghost (approssimato)
                 if (dist < minDist) {
                     if (ghost->isFrightened() && !ghost->isEaten()) {
-                        // Pac-Man mangia il fantasma
                         ghost->setEaten(true);
-                        // Aumenta il punteggio (es: 200 punti per fantasma)
                         score->add(200);
                         continue;
                     } else if (!ghost->isEaten() && !ghost->isReturningToHouse()) {
-                        MessageBoxA(NULL, "Game Over! Pac-Man ha incontrato un fantasma. Premi OK per ripartire.", "Game Over", MB_OK|MB_ICONERROR);
-                        pac = Player(120.f, startPos, tileSize);
-                        score = std::make_unique<Score>(fontPath.string());
-                        // Reset posizione fantasmi
-                        for (size_t i = 0; i < ghosts.size(); ++i) {
-                            ghosts[i]->setPosition(ghostStartPos[i]);
-                            ghosts[i]->setFrightened(0.f); // Reset frightened state
-                            ghosts[i]->setEaten(false);    // Reset eaten state
-                            ghosts[i]->setReleased(false); // Reset released state
-                        }
-                        // Reset ghost release state sequenziale
-                        nextGhostToRelease = 0;
-                        ghostReleaseTimer = 0.f;
+                        showMessage(window, "GAME OVER!\n\nPAC-MAN WAS CAUGHT!\n\nTRY AGAIN!", fontPath.string());
+                        // Ricarica il livello corrente invece di chiudere il gioco
+                        loadLevel(currentLevel);
                         gameOver = true;
-                        break;
                     }
                 }
             }

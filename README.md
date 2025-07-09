@@ -93,7 +93,7 @@ L’eseguibile verrà generato in `build/Release/PacmanMVP.exe` e dovrà essere 
 - **AI fedele all'originale**: Blinky insegue Pac-Man, Pinky mira 4 celle avanti, entrambi con pathfinding greedy (distanza euclidea, tie-breaking Up>Left>Down>Right, no inversione immediata).
 - **Pronto per estensioni**: Struttura pronta per logiche uniche di Inky e Clyde, modalità frightened, animazioni, ecc.
 
-### Funzionalità della Release 5 (COMPLETATA)
+### Funzionalità della Release 5
 - I fantasmi entrano in modalità frightened (blu, movimento casuale e rallentato) quando Pac-Man mangia un Super Pellet.
 - I fantasmi possono essere mangiati da Pac-Man in modalità frightened: diventano "occhi", tornano alla ghost house, attendono e poi respawnano normalmente.
 - Implementato il timer frightened, con effetto lampeggiante prima della fine.
@@ -101,31 +101,33 @@ L’eseguibile verrà generato in `build/Release/PacmanMVP.exe` e dovrà essere 
 - Alternanza classica scatter/chase con timer configurabili e debug log dettagliato.
 - Reset completo degli stati dei fantasmi su game over o vittoria.
 
+### Release 6: Levels & Progression
+- Sistema multi-livello con caricamento dinamico
+- Implementato reset con aumento di difficoltá una volta finiti tutti i livelli a disposizione
+- Velocità variabili per Pac-Man e fantasmi
+- Nuova mappa basata su Ms. Pacman
+- Corrette tempistiche di uscita fantasmi dalla ghost house e diminuito scatter time
+- Aggiunte scritte di vittoria e sconfitta con grafica SFML al posto di console windows
+- Cambiato font principale 
+
 ## Prossime Release (Roadmap)
 
-### Release 6: Levels & Progression
-- Sistema multi-livello con difficoltà crescente
-- Velocità variabili per Pac-Man e fantasmi
-- Bonus fruit intermittenti
-- Animazioni migliorate e sprite
+## Release 7: UI completa
+- Menu principale, HUD, punteggio, vite.
+- Schermata iniziale, Game Over, visualizzazione vite e punteggio.
 
-### Release 7: UI & Audio
-- Menu principale e pause
-- High score persistente
-- Effetti sonori completi
-- Animazioni di morte e transizioni
+## Release 8: Audio
+- Musica di sottofondo, effetti (mangiare, morte).
+- Integrazione con SFML audio.
 
-### Release 8: Polish & Features
-- Miglioramenti grafici e animazioni
-- Ottimizzazioni e bugfix
-- Refactoring finale
+## Release 9: Salvataggio highscore + schermata dei record
+- File locale (JSON o TXT), visualizzazione dei record.
 
-## Aggiungere nuove mappe
+## Release 10: Polish finale
+- Animazioni, sprite, effetti particellari, transizioni, ottimizzazioni, bugfix, refactoring.
 
-1. Copia un file `.txt` in `assets/`, mantenendo convenzione ASCII:
-   - `1` = muro, `0` = corridoio, `P` = spawn di Pac-Man, `2` = contorno mappa.
-2. Avvia l’eseguibile e verrà caricata la mappa `map1.txt`.
-3. Per cambiare mappa, modifica la stringa in `main.cpp` o aggiungi parametro da linea di comando.
+## Bug Noti
+- Fantasmi si bloccano quando tentano di attraversare il teleport finché pacman non li fa entrare in modalitá frightened.
 
 ---
 

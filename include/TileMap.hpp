@@ -52,4 +52,5 @@ private:
     std::vector<std::string>          m_data;
     std::vector<sf::RectangleShape>   m_tiles;
     sf::Vector2u                      m_size;
+    std::string                       m_filename; // Store the filename for wall color logic
 };

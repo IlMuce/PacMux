@@ -12,7 +12,7 @@ sf::Vector2f Blinky::calculateTarget(const sf::Vector2f& pacmanPos, const sf::Ve
 }
 
 void Blinky::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
-                  const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, Mode mode) {
+                  const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, Mode mode, bool gameStarted) {
     static float debugTimer = 0.f;
     m_mode = mode;
     sf::Vector2f pos = m_shape.getPosition();
@@ -22,5 +22,5 @@ void Blinky::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
         std::cout << "[BLINKY] Pos: (" << pos.x << "," << pos.y << ") Dir: (" << m_direction.x << "," << m_direction.y << ") Pacman: (" << pacmanPos.x << "," << pacmanPos.y << ") Mode: " << modeStr << std::endl;
         debugTimer = 0.f;
     }
-    Ghost::update(dt, map, tileSize, pacmanPos, pacmanDirection, mode);
+    Ghost::update(dt, map, tileSize, pacmanPos, pacmanDirection, mode, gameStarted);
 }

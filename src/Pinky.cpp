@@ -24,7 +24,11 @@ sf::Vector2f Pinky::calculateTarget(const sf::Vector2f& pacmanPos, const sf::Vec
 }
 
 void Pinky::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
-                  const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, Mode mode) {
+                  const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, Mode mode, bool gameStarted, bool released) {
+    if (!m_released) {
+        m_drawPos = m_shape.getPosition();
+        return;
+    }
     static float debugTimer = 0.f;
     m_mode = mode;
     sf::Vector2f pos = m_shape.getPosition();
@@ -35,5 +39,5 @@ void Pinky::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
         std::cout << "[PINKY] Pos: (" << pos.x << "," << pos.y << ") Dir: (" << m_direction.x << "," << m_direction.y << ") Pacman: (" << pacmanPos.x << "," << pacmanPos.y << ") Target: (" << target.x << "," << target.y << ") Mode: " << modeStr << std::endl;
         debugTimer = 0.f;
     }
-    Ghost::update(dt, map, tileSize, pacmanPos, pacmanDirection, mode);
+    Ghost::update(dt, map, tileSize, pacmanPos, pacmanDirection, mode, gameStarted);
 }

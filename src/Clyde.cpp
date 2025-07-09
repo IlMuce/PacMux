@@ -6,10 +6,14 @@ Clyde::Clyde(const sf::Vector2f& pos) : Ghost(pos, sf::Color(255, 165, 0), 12.0f
 }
 
 void Clyde::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
-                  const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, Mode mode) {
+                  const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, Mode mode, bool gameStarted, bool released) {
+    if (!m_released) {
+        m_drawPos = m_shape.getPosition();
+        return;
+    }
     // Se è in stato eaten/returning, lascia che la base gestisca tutto!
     if (m_eaten || m_isReturningToHouse) {
-        Ghost::update(dt, map, tileSize, pacmanPos, pacmanDirection, mode);
+        Ghost::update(dt, map, tileSize, pacmanPos, pacmanDirection, mode, gameStarted);
         return;
     }
     static float debugTimer = 0.f;
@@ -42,7 +46,7 @@ void Clyde::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
             else if (nextX >= w) nextX = 0;
         }
         if (nextX >= 0 && nextX < w && nextY >= 0 && nextY < h && canMove(m_direction, map, tileSize)) {
-            sf::Vector2f dest{nextX * float(tileSize.x) + tileSize.x/2.f, nextY * float(tileSize.y) + tileSize.y/2.f};
+            sf::Vector2f dest{nextX * float(tileSize.x) + tileSize.x/2.f, nextY * float(tileSize.y) + float(tileSize.y/2.f)};
             sf::Vector2f delta = dest - m_shape.getPosition();
             float step = m_speed * dt;
             if (std::hypot(delta.x, delta.y) <= step) {
@@ -57,9 +61,7 @@ void Clyde::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
         }
         m_drawPos = m_shape.getPosition();
     } else {
-        // Comportamento normale: delega alla base
-        Ghost::update(dt, map, tileSize, pacmanPos, pacmanDirection, mode);
-        return;
+        Ghost::update(dt, map, tileSize, pacmanPos, pacmanDirection, mode, gameStarted);
     }
 }
 

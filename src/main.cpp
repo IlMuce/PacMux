@@ -690,20 +690,25 @@ int main()
                 // WORKAROUND: Evita che i fantasmi attraversino i bordi laterali (teleport)
                 sf::Vector2f ghostPos = ghosts[i]->getPosition();
                 unsigned ghostTileX = static_cast<unsigned>(ghostPos.x / tileSize.x);
-                
-                // Se il fantasma è troppo vicino ai bordi laterali, riposizionalo più naturalmente
+                // Se il fantasma è troppo vicino ai bordi laterali, riposizionalo e forza la direzione verso l'interno
                 if (ghostTileX <= 1) {
-                    // Troppo a sinistra, sposta con spazio sufficiente per evitare incastri
                     sf::Vector2f newPos = ghostPos;
-                    newPos.x = 2.2f * tileSize.x; // Più spazio per evitare incastri
+                    newPos.x = 2.2f * tileSize.x;
                     ghosts[i]->setPosition(newPos);
-                    std::cout << "[DEBUG] Ghost " << i << " troppo a sinistra, riposizionato\n";
+                    // Forza la direzione verso destra (interno)
+                    sf::Vector2f dir = ghosts[i]->getDirection();
+                    dir.x = 1.f; dir.y = 0.f;
+                    ghosts[i]->setDirection(dir);
+                    std::cout << "[DEBUG] Ghost " << i << " troppo a sinistra, riposizionato e direzione forzata a destra\n";
                 } else if (ghostTileX >= mapSz.x - 2) {
-                    // Troppo a destra, sposta molto vicino al bordo (più naturale)
                     sf::Vector2f newPos = ghostPos;
-                    newPos.x = (mapSz.x - 2.2f) * tileSize.x; // Posiziona più vicino al bordo
+                    newPos.x = (mapSz.x - 2.2f) * tileSize.x;
                     ghosts[i]->setPosition(newPos);
-                    std::cout << "[DEBUG] Ghost " << i << " troppo a destra, riposizionato\n";
+                    // Forza la direzione verso sinistra (interno)
+                    sf::Vector2f dir = ghosts[i]->getDirection();
+                    dir.x = -1.f; dir.y = 0.f;
+                    ghosts[i]->setDirection(dir);
+                    std::cout << "[DEBUG] Ghost " << i << " troppo a destra, riposizionato e direzione forzata a sinistra\n";
                 }
             }
 

@@ -106,7 +106,8 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
         m_hasLeftGhostHouse = true;
         std::cout << "[GHOST] " << Ghost::getTypeName(m_type) << " has left ghost house at (" << sx << "," << sy << ")!\n";
     }
-    if (m_hasLeftGhostHouse && map.isGhostHouse(sx, sy) && !m_isReturningToHouse) {
+    // Resetta solo se il fantasma è nella ghost house centrale (tile 10,10)
+    if (m_hasLeftGhostHouse && map.isGhostHouse(sx, sy) && !m_isReturningToHouse && sx == 10 && sy == 10) {
         std::cout << "[GHOST] " << Ghost::getTypeName(m_type) << " re-entered ghost house at (" << sx << "," << sy << ")!\n";
         m_hasLeftGhostHouse = false;
     }
@@ -142,12 +143,31 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
     int nextX = int(std::round(cx + m_direction.x));
     int nextY = int(std::round(cy + m_direction.y));
     bool validMove = true;
-    // Tunnel logic: if on tunnel row (y==10) and moving out of bounds horizontally, wrap to the other side
-    if (nextY == 10) {
-        if (nextX < 0) nextX = w - 1;
-        else if (nextX >= w) nextX = 0;
+    
+    // Gestione tunnel automatica: rileva tunnel secondo la regola specifica
+    if (nextY >= 0 && nextY < h) {
+        if (nextX < 0) {
+            // Controlla se è un tunnel valido a sinistra
+            bool isTunnel = (map.getData()[nextY][0] == '2');
+            if (nextY > 0) isTunnel = isTunnel && (map.getData()[nextY-1][0] == '1');
+            if (nextY < h-1) isTunnel = isTunnel && (map.getData()[nextY+1][0] == '1');
+            
+            if (isTunnel) {
+                nextX = w - 1; // Tunnel: entra dal lato destro
+            }
+        } else if (nextX >= w) {
+            // Controlla se è un tunnel valido a destra
+            bool isTunnel = (map.getData()[nextY][w-1] == '2');
+            if (nextY > 0) isTunnel = isTunnel && (map.getData()[nextY-1][w-1] == '1');
+            if (nextY < h-1) isTunnel = isTunnel && (map.getData()[nextY+1][w-1] == '1');
+            
+            if (isTunnel) {
+                nextX = 0; // Tunnel: entra dal lato sinistro
+            }
+        }
     }
-    // After tunnel logic, check bounds
+    
+    // Dopo la gestione tunnel, controlla i limiti
     if (nextX < 0 || nextX >= w) validMove = false;
     if (nextY < 0 || nextY >= h) validMove = false;
     if (validMove && canMove(m_direction, map, tileSize)) {
@@ -163,14 +183,27 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
                 m_shape.move(normalizedDelta * step);
             }
         }
-        // Tunnel teleport: if on tunnel row and out of bounds after move, teleport to opposite side
-        float tunnelY = 10 * tileSize.y + tileSize.y/2.f;
+        // Tunnel teleport automatico: rileva tunnel secondo la regola specifica
         float mapWidth = map.getSize().x * tileSize.x;
-        if (std::abs(m_shape.getPosition().y - tunnelY) < tileSize.y/4.f) {
-            if (m_shape.getPosition().x < 0) {
-                m_shape.setPosition({mapWidth - tileSize.x/2.f, m_shape.getPosition().y});
-            } else if (m_shape.getPosition().x >= mapWidth) {
-                m_shape.setPosition({tileSize.x/2.f, m_shape.getPosition().y});
+        sf::Vector2f currentPos = m_shape.getPosition();
+        int currentTileY = static_cast<int>(currentPos.y / tileSize.y);
+        
+        // Controlla se la riga corrente è un tunnel valido
+        if (currentTileY >= 0 && currentTileY < h) {
+            bool isTunnel = (map.getData()[currentTileY][0] == '2' && map.getData()[currentTileY][w-1] == '2');
+            if (currentTileY > 0) {
+                isTunnel = isTunnel && (map.getData()[currentTileY-1][0] == '1' && map.getData()[currentTileY-1][w-1] == '1');
+            }
+            if (currentTileY < h-1) {
+                isTunnel = isTunnel && (map.getData()[currentTileY+1][0] == '1' && map.getData()[currentTileY+1][w-1] == '1');
+            }
+            
+            if (isTunnel) {
+                if (currentPos.x < 0) {
+                    m_shape.setPosition({mapWidth - tileSize.x/2.f, currentPos.y});
+                } else if (currentPos.x >= mapWidth) {
+                    m_shape.setPosition({tileSize.x/2.f, currentPos.y});
+                }
             }
         }
     } else {
@@ -376,11 +409,40 @@ bool Ghost::canMove(const sf::Vector2f& direction, const TileMap& map, const sf:
     int nextX = int(std::round(cx + direction.x));
     int nextY = int(std::round(cy + direction.y));
     int w = map.getSize().x, h = map.getSize().y;
-    // Tunnel orizzontali (riga 10): se si esce a sinistra/destra sulla riga tunnel, si entra dall'altro lato
-    if (nextY == 10) {
-        if (nextX < 0) nextX = w - 1;
-        else if (nextX >= w) nextX = 0;
+    
+    // Gestione tunnel automatica: rileva tunnel secondo la regola specifica
+    if (nextY >= 0 && nextY < h) { // Assicurati che Y sia valido
+        if (nextX < 0) {
+            // Controlla se è un tunnel valido a sinistra:
+            // - Prima cella della riga corrente = '2'
+            // - Prima cella riga sopra = '1' (se esiste)
+            // - Prima cella riga sotto = '1' (se esiste)
+            bool isTunnel = (map.getData()[nextY][0] == '2');
+            if (nextY > 0) isTunnel = isTunnel && (map.getData()[nextY-1][0] == '1');
+            if (nextY < h-1) isTunnel = isTunnel && (map.getData()[nextY+1][0] == '1');
+            
+            if (isTunnel) {
+                nextX = w - 1; // Tunnel: entra dal lato destro
+            } else {
+                return false; // No tunnel disponibile
+            }
+        } else if (nextX >= w) {
+            // Controlla se è un tunnel valido a destra:
+            // - Ultima cella della riga corrente = '2'
+            // - Ultima cella riga sopra = '1' (se esiste)
+            // - Ultima cella riga sotto = '1' (se esiste)
+            bool isTunnel = (map.getData()[nextY][w-1] == '2');
+            if (nextY > 0) isTunnel = isTunnel && (map.getData()[nextY-1][w-1] == '1');
+            if (nextY < h-1) isTunnel = isTunnel && (map.getData()[nextY+1][w-1] == '1');
+            
+            if (isTunnel) {
+                nextX = 0; // Tunnel: entra dal lato sinistro
+            } else {
+                return false; // No tunnel disponibile
+            }
+        }
     }
+    
     // Dopo la gestione tunnel, controlla i limiti
     if (nextX < 0 || nextX >= w || nextY < 0 || nextY >= h) return false;
     if (map.isWall(nextX, nextY)) return false;

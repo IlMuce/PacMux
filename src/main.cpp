@@ -669,6 +669,7 @@ int main()
             // Aggiorna i fantasmi con la nuova architettura
             for (size_t i = 0; i < ghosts.size(); ++i) {
                 Ghost::Mode m = (ghostMode == GhostMode::Scatter) ? Ghost::Mode::Scatter : Ghost::Mode::Chase;
+                
                 if (auto* inky = dynamic_cast<Inky*>(ghosts[i].get())) {
                     if (ghosts.size() > 0) {
                         inky->update(dt, map, tileSize, pac.getPosition(), pac.getDirection(), m, ghosts[0]->getPosition(), gameStarted);
@@ -679,6 +680,25 @@ int main()
                     clyde->update(dt, map, tileSize, pac.getPosition(), pac.getDirection(), m, gameStarted);
                 } else {
                     ghosts[i]->update(dt, map, tileSize, pac.getPosition(), pac.getDirection(), m, gameStarted);
+                }
+                
+                // WORKAROUND: Evita che i fantasmi attraversino i bordi laterali (teleport)
+                sf::Vector2f ghostPos = ghosts[i]->getPosition();
+                unsigned ghostTileX = static_cast<unsigned>(ghostPos.x / tileSize.x);
+                
+                // Se il fantasma è troppo vicino ai bordi laterali, riposizionalo più naturalmente
+                if (ghostTileX <= 1) {
+                    // Troppo a sinistra, sposta con spazio sufficiente per evitare incastri
+                    sf::Vector2f newPos = ghostPos;
+                    newPos.x = 2.2f * tileSize.x; // Più spazio per evitare incastri
+                    ghosts[i]->setPosition(newPos);
+                    std::cout << "[DEBUG] Ghost " << i << " troppo a sinistra, riposizionato\n";
+                } else if (ghostTileX >= mapSz.x - 2) {
+                    // Troppo a destra, sposta molto vicino al bordo (più naturale)
+                    sf::Vector2f newPos = ghostPos;
+                    newPos.x = (mapSz.x - 2.2f) * tileSize.x; // Posiziona più vicino al bordo
+                    ghosts[i]->setPosition(newPos);
+                    std::cout << "[DEBUG] Ghost " << i << " troppo a destra, riposizionato\n";
                 }
             }
 

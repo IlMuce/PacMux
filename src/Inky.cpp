@@ -17,10 +17,22 @@ sf::Vector2f Inky::calculateTarget(const sf::Vector2f& pacmanPos, const sf::Vect
     }
     sf::Vector2f vec = ahead - blinkyPos;
     sf::Vector2f target = blinkyPos + 2.0f * vec;
-    // Clamp ai bordi
+    
+    // Clamp migliorato: assicura che il target sia sempre dentro i confini validi
     int w = map.getSize().x, h = map.getSize().y;
     target.x = std::max(float(tileSize.x/2), std::min(target.x, (w-1) * float(tileSize.x) + float(tileSize.x/2)));
     target.y = std::max(float(tileSize.y/2), std::min(target.y, (h-1) * float(tileSize.y) + float(tileSize.y/2)));
+    
+    // Verifica che il target sia su una cella accessibile (non muro)
+    int targetTileX = static_cast<int>(target.x / tileSize.x);
+    int targetTileY = static_cast<int>(target.y / tileSize.y);
+    
+    // Se il target è su un muro o fuori dai confini, usa la posizione di Pac-Man
+    if (targetTileX < 0 || targetTileX >= w || targetTileY < 0 || targetTileY >= h ||
+        map.isWall(targetTileX, targetTileY)) {
+        target = pacmanPos;
+    }
+    
     return target;
 }
 
@@ -28,7 +40,7 @@ sf::Vector2f Inky::calculateTarget(const sf::Vector2f& pacmanPos, const sf::Vect
 sf::Vector2f Inky::calculateTarget(const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection,
                                    const TileMap& map, const sf::Vector2u& tileSize) {
     // Fallback: usa (0,0) come posizione di Blinky se non specificata
-    return calculateTarget(pacmanPos, pacmanDirection, map, tileSize, sf::Vector2f(0,0));
+    return calculateTarget(pacmanPos, pacmanDirection, map, tileSize, sf::Vector2f(float(tileSize.x/2), float(tileSize.y/2)));
 }
 
 // Overloaded update: uses Blinky's position for targeting and release logic

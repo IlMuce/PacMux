@@ -24,6 +24,17 @@ public:
     // Aggiorna la posizione logica di Pac-Man
     void setLogicalPosition(const sf::Vector2f& position) { m_logicalPosition = position; }
 
+    // Gestione vite
+    int getLives() const { return m_lives; }
+    void setLives(int lives) { m_lives = lives; }
+    void loseLife() { if (m_lives > 0) m_lives--; }
+    
+    // Ferma il movimento di Pac-Man (per situazioni speciali come vita extra)
+    void stopMovement() { 
+        m_direction = {0.f, 0.f}; 
+        m_nextDirection = {0.f, 0.f}; 
+    }
+
 private:
     void draw(sf::RenderTarget& target, sf::RenderStates states) const override;
 
@@ -33,4 +44,5 @@ private:
     sf::Vector2f      m_nextDirection;  // direzione desiderata dal giocatore
     sf::Vector2u      m_tileSize;
     sf::Vector2f      m_logicalPosition; // Posizione logica di Pac-Man
+    int               m_lives;           // Numero di vite del giocatore
 };

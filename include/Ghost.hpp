@@ -62,6 +62,14 @@ public:
         }
     }
 
+    // Permette di impostare la direzione manualmente (es. workaround teleport)
+    void setDirection(const sf::Vector2f& dir) { m_direction = dir; }
+    // Restituisce la direzione corrente del fantasma
+    sf::Vector2f getDirection() const { return m_direction; }
+
+    // Forza il flag m_hasLeftGhostHouse (workaround per log spam ai bordi)
+    void forceHasLeftGhostHouse(bool val) { m_hasLeftGhostHouse = val; }
+
 protected:
     virtual sf::Vector2f calculateTarget(const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, 
                                         const TileMap& map, const sf::Vector2u& tileSize) = 0;

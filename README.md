@@ -7,8 +7,9 @@ Questo repository contiene una versione base funzionante (MVP, Minimum Viable Pr
 ```
 pacman-sfml/
 ├── assets/            # Risorse di gioco (mappe, font)
-│   ├── map1.txt       # Mappa di esempio (ASCII)
-│   └── arial.ttf      # Font per il punteggio
+│   ├── map1.txt       # Livello 1
+│   ├── map2.txt       # Livello 2
+│   └── pacman.ttf     # Font del gioco
 ├── include/           # Header C++ (tutti gli .hpp)
 │   ├── Blinky.hpp     # AI Blinky
 │   ├── Pinky.hpp      # AI Pinky
@@ -101,7 +102,7 @@ L’eseguibile verrà generato in `build/Release/PacmanMVP.exe` e dovrà essere 
 - Alternanza classica scatter/chase con timer configurabili e debug log dettagliato.
 - Reset completo degli stati dei fantasmi su game over o vittoria.
 
-### Release 6: Levels & Progression
+### Funzionalità della Release 6
 - Sistema multi-livello con caricamento dinamico
 - Implementato reset con aumento di difficoltá una volta finiti tutti i livelli a disposizione
 - Velocità variabili per Pac-Man e fantasmi
@@ -110,11 +111,14 @@ L’eseguibile verrà generato in `build/Release/PacmanMVP.exe` e dovrà essere 
 - Aggiunte scritte di vittoria e sconfitta con grafica SFML al posto di console windows
 - Cambiato font principale 
 
-## Prossime Release (Roadmap)
+### Funzionalità della Release 7 (COMPLETATA)
+- Gestione avanzata stati di gioco.
+- Aggiunta menu principale, menu di pausa, schermata Game Over.
+- HUD completo con visualizzazione punteggio, vite rimaste e livello attuale.
+- Vita extra una volta raggiunti 10k punti.
+- Aggiunta possibilitá di compilazione con dll statici (non serve averli inclusi nel PATH di sistema).
 
-## Release 7: UI completa
-- Menu principale, HUD, punteggio, vite.
-- Schermata iniziale, Game Over, visualizzazione vite e punteggio.
+## Prossime Release (Roadmap)
 
 ## Release 8: Audio
 - Musica di sottofondo, effetti (mangiare, morte).
@@ -122,12 +126,16 @@ L’eseguibile verrà generato in `build/Release/PacmanMVP.exe` e dovrà essere 
 
 ## Release 9: Salvataggio highscore + schermata dei record
 - File locale (JSON o TXT), visualizzazione dei record.
+- Aggiunta terza mappa.
 
 ## Release 10: Polish finale
 - Animazioni, sprite, effetti particellari, transizioni, ottimizzazioni, bugfix, refactoring.
 
 ## Bug Noti
 - Fantasmi si bloccano quando tentano di attraversare il teleport finché pacman non li fa entrare in modalitá frightened.
+  Soluzione temporanea: divieto di attraversamento dei teleport ai fantasmi.
+- Pacman può uscire dalla mappa in determinate circostanze se si mette in pausa mentre é in movimento e si trova vicino ad un muro.
+  Soluzione temporanea: si può mettere in pausa solo se pacman é completamente fermo.
 
 ---
 

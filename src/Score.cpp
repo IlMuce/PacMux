@@ -2,7 +2,7 @@
 
 // Costruttore: inizializza il punteggio e prepara il testo a schermo
 Score::Score(const std::string& fontFile)
-    : m_score(0)
+    : m_score(0), m_extraLifeThreshold(10000), m_extraLifeGiven(false)
 {
     // Carica il font dal file, lancia eccezione se fallisce
     if (!m_font.openFromFile(fontFile))
@@ -22,7 +22,21 @@ Score::Score(const std::string& fontFile)
 // Aggiunge punti al punteggio e aggiorna il testo
 void Score::add(unsigned value) {
     m_score += value;
+    updateText();
+}
+
+// Aggiorna il testo del punteggio
+void Score::updateText() {
     m_text->setString(sf::String("Score: " + std::to_string(m_score)));
+}
+
+// Controlla se è stata raggiunta una soglia per vita extra (solo UNA volta per partita)
+bool Score::checkExtraLife() {
+    if (!m_extraLifeGiven && m_score >= m_extraLifeThreshold) {
+        m_extraLifeGiven = true; // Segna che la vita extra è stata assegnata
+        return true;
+    }
+    return false;
 }
 
 // Disegna il punteggio sulla finestra

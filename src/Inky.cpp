@@ -1,9 +1,24 @@
 #include "Inky.hpp"
+#include "Ghost.hpp"
 #include <cmath>
 #include <iostream>
 
 // Inky: targeting collaborativo (Blinky + Pac-Man)
-Inky::Inky(const sf::Vector2f& pos) : Ghost(pos, sf::Color::Cyan, 12.0f, Type::Inky) {}
+Inky::Inky(const sf::Vector2f& pos) : Ghost(pos, sf::Color::Cyan, 12.0f, Type::Inky) {
+    m_texture = std::make_unique<sf::Texture>();
+    if (m_texture->loadFromFile("assets/pacman.png")) {
+        m_sprite = std::make_unique<sf::Sprite>(*m_texture);
+        m_sprite->setTextureRect(INKY_FRAMES[2][0]); // frame iniziale: destra, anim 0
+        m_sprite->setOrigin(sf::Vector2f{8.f, 8.f});
+        float scale = 12.f / 8.f;
+        m_sprite->setScale(sf::Vector2f{scale, scale});
+        m_hasTexture = true;
+    } else {
+        m_hasTexture = false;
+    }
+    m_animTime = 0.f;
+    m_animFrame = 0;
+}
 
 // Target = punto ottenuto proiettando il vettore da Blinky a 2 celle davanti a Pac-Man, raddoppiato
 sf::Vector2f Inky::calculateTarget(const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection,
@@ -103,5 +118,17 @@ void Inky::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
     } else {
         // Comportamento normale: delega alla base
         Ghost::update(dt, map, tileSize, pacmanPos, pacmanDirection, mode, gameStarted);
+    }
+}
+
+void Inky::draw(sf::RenderTarget& target, sf::RenderStates states) const {
+    states.transform *= getTransform();
+    if (m_hasTexture && m_sprite) {
+        m_sprite->setPosition(m_drawPos);
+        target.draw(*m_sprite, states);
+    } else {
+        sf::CircleShape shape = m_shape;
+        shape.setPosition(m_drawPos);
+        target.draw(shape, states);
     }
 }

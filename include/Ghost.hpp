@@ -106,3 +106,12 @@ protected:
 
     bool m_released = false;
 };
+
+// --- ANIMAZIONE SPRITE FANTASMI ---
+// Array di frame per Blinky (e altri se vuoi)
+extern const sf::IntRect BLINKY_FRAMES[4][2];
+extern const sf::IntRect INKY_FRAMES[4][2];
+extern const sf::IntRect CLYDE_FRAMES[4][2];
+extern const sf::IntRect PINKY_FRAMES[4][2];
+extern const float GHOST_ANIMATION_INTERVAL;
+// Puoi aggiungere qui anche PINKY_FRAMES se vuoi usarli altrove

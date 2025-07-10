@@ -1000,7 +1000,8 @@ int main()
                 
                 // Mantieni i suoni attivi se non sono cambiati gli stati (controllo meno frequente)
                 static sf::Clock maintainSoundCheck;
-                if (maintainSoundCheck.getElapsedTime().asSeconds() > 1.0f) { // Controlla ogni secondo
+                if (maintainSoundCheck.getElapsedTime().asSeconds() > 1.0f) // Controlla ogni secondo
+                {
                     if (anyReturning && sfxGhostReturn.getStatus() != sf::Sound::Status::Playing) {
                         sfxGhostReturn.play();
                     } else if (!anyFrightened && !anyReturning && sfxGhostNormal.getStatus() != sf::Sound::Status::Playing) {
@@ -1250,12 +1251,12 @@ int main()
                 pelletTransform.translate(mapOffset);
                 window.draw(p, pelletTransform);
             }
-            // Disegna i Super Pellet come cerchi grandi
+            // Disegna i Super Pellet come cerchi piccoli e peach
             for (const auto& pos : superPelletPositions) {
-                sf::CircleShape superPellet(12.f); // raggio 12px (triplo del pellet normale)
-                superPellet.setOrigin({12.f, 12.f});
+                sf::CircleShape superPellet(9.f); // raggio 9px
+                superPellet.setOrigin(sf::Vector2f(9.f, 9.f));
                 superPellet.setPosition(pos + mapOffset);
-                superPellet.setFillColor(sf::Color(255, 192, 203)); // rosa chiaro
+                superPellet.setFillColor(sf::Color(255, 209, 128)); // peach
                 window.draw(superPellet);
             }
             for (auto& g : ghosts) {

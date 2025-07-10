@@ -1,4 +1,4 @@
-# Pacman-SFML Release 4
+# Pacman-SFML 3.0
 
 Questo repository contiene una versione base funzionante (MVP, Minimum Viable Product) di un clone di Pac-Man realizzato con SFML 3.0 e CMake.
 

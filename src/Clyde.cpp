@@ -94,7 +94,17 @@ void Clyde::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
         else if (m_direction.y < 0) dir = 1;
         else if (m_direction.y > 0) dir = 3;
         if (m_isFrightened) {
-            m_sprite->setTextureRect(FRIGHTENED_FRAMES[m_animFrame]);
+            // Negli ultimi 2 secondi alterna tra blu e bianco ogni 0.125s (come Inky)
+            if (m_frightenedDuration - m_frightenedTimer < 2.f) {
+                bool white = (int((m_frightenedTimer * 8)) % 2) == 1;
+                if (white) {
+                    m_sprite->setTextureRect(FRIGHTENED_WHITE_FRAMES[m_animFrame % 2]);
+                } else {
+                    m_sprite->setTextureRect(FRIGHTENED_FRAMES[m_animFrame % 2]);
+                }
+            } else {
+                m_sprite->setTextureRect(FRIGHTENED_FRAMES[m_animFrame % 2]);
+            }
         } else {
             m_sprite->setTextureRect(CLYDE_FRAMES[dir][m_animFrame]);
         }
@@ -113,7 +123,16 @@ void Clyde::draw(sf::RenderTarget& target, sf::RenderStates states) const {
             else if (m_direction.y > 0) dir = 3;
             m_sprite->setTextureRect(EYES_FRAMES[dir]);
         } else if (m_isFrightened) {
-            m_sprite->setTextureRect(FRIGHTENED_FRAMES[m_animFrame % 2]);
+            if (m_frightenedDuration - m_frightenedTimer < 2.f) {
+                bool white = (int((m_frightenedTimer * 8)) % 2) == 1;
+                if (white) {
+                    m_sprite->setTextureRect(FRIGHTENED_WHITE_FRAMES[m_animFrame % 2]);
+                } else {
+                    m_sprite->setTextureRect(FRIGHTENED_FRAMES[m_animFrame % 2]);
+                }
+            } else {
+                m_sprite->setTextureRect(FRIGHTENED_FRAMES[m_animFrame % 2]);
+            }
         } else {
             int dir = 2;
             if (m_direction.x < 0) dir = 0;

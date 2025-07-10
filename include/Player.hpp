@@ -54,4 +54,7 @@ private:
     std::unique_ptr<sf::Texture> m_texture;
     std::unique_ptr<sf::Sprite>  m_sprite;
     bool                         m_hasTexture;
+    // --- Animazione Pac-Man ---
+    float m_animTime = 0.f;
+    int m_animFrame = 0;
 };

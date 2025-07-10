@@ -2,6 +2,7 @@
 #include "Player.hpp"
 #include <SFML/Window/Keyboard.hpp>
 #include <cmath>
+#include <iostream>
 
 // Costruttore: inizializza Pac-Man con velocità, posizione e dimensione cella
 Player::Player(float speed, const sf::Vector2f& startPos, const sf::Vector2u& tileSize)
@@ -11,12 +12,43 @@ Player::Player(float speed, const sf::Vector2f& startPos, const sf::Vector2u& ti
     , m_nextDirection{0.f, 0.f}
     , m_tileSize(tileSize)
     , m_lives(3)  // Inizializza con 3 vite
+    , m_hasTexture(false)
 {
     m_shape.setFillColor(sf::Color::Yellow);
     m_shape.setOrigin(sf::Vector2f(m_shape.getRadius(), m_shape.getRadius()));
     m_shape.setPosition(startPos);
-
     m_logicalPosition = startPos; // Inizializza la posizione logica
+    
+    // Prova a caricare la texture di Pac-Man
+    m_texture = std::make_unique<sf::Texture>();
+    if (m_texture->loadFromFile("assets/pacman.png")) {
+        std::cout << "[DEBUG] Texture Pac-Man caricata con successo!" << std::endl;
+        
+        // Crea lo sprite
+        m_sprite = std::make_unique<sf::Sprite>(*m_texture);
+        
+        // Imposta il frame per Pac-Man bocca chiusa 
+        // Test: spostiamo 5px a destra e 5px in basso
+        // x=5, y=497, dimensioni=32x32
+        m_sprite->setTextureRect(sf::IntRect(sf::Vector2i{1, 498}, sf::Vector2i{32, 32}));
+        
+        std::cout << "[DEBUG] Frame impostato a (5, 497, 32x32)" << std::endl;
+        
+        // Imposta origine al centro
+        m_sprite->setOrigin(sf::Vector2f{16.f, 16.f});
+        
+        // Scala lo sprite per adattarlo alla dimensione della cella (ridotto all'80%)
+        float scale = static_cast<float>(tileSize.x) / 32.f * 0.75f;
+        m_sprite->setScale(sf::Vector2f{scale, scale});
+        
+        // Posiziona lo sprite
+        m_sprite->setPosition(startPos);
+        
+        m_hasTexture = true;
+        std::cout << "[DEBUG] Sprite Pac-Man configurato (scala: " << scale << ")" << std::endl;
+    } else {
+        std::cout << "[WARNING] Impossibile caricare assets/pacman.png, uso cerchio giallo" << std::endl;
+    }
 }
 
 // Aggiorna la posizione e la direzione di Pac-Man in base all'input e alle collisioni
@@ -129,10 +161,22 @@ void Player::update(float dt, const TileMap& map, const sf::Vector2u& tileSize) 
 
     // Aggiorna la posizione logica con la posizione corrente
     m_logicalPosition = m_shape.getPosition();
+    
+    // Sincronizza lo sprite con la posizione del cerchio
+    if (m_hasTexture && m_sprite) {
+        m_sprite->setPosition(m_shape.getPosition());
+    }
 }
 
 // Disegna Pac-Man sulla finestra
 void Player::draw(sf::RenderTarget& target, sf::RenderStates states) const {
     states.transform *= getTransform();
-    target.draw(m_shape, states);
+    
+    if (m_hasTexture && m_sprite) {
+        // Disegna lo sprite se la texture è disponibile
+        target.draw(*m_sprite, states);
+    } else {
+        // Fallback: disegna il cerchio giallo
+        target.draw(m_shape, states);
+    }
 }

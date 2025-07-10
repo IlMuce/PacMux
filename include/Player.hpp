@@ -1,5 +1,6 @@
 #pragma once
 #include <SFML/Graphics.hpp>
+#include <memory>
 #include "TileMap.hpp"
 
 class Player : public sf::Drawable, public sf::Transformable {
@@ -15,7 +16,10 @@ public:
     // Imposta la posizione di Pac-Man
     void setPosition(const sf::Vector2f& position) { 
         m_shape.setPosition(position); 
-        m_logicalPosition = position; 
+        m_logicalPosition = position;
+        if (m_hasTexture && m_sprite) {
+            m_sprite->setPosition(position);
+        }
     }
 
     // Restituisce la posizione logica di Pac-Man
@@ -45,4 +49,9 @@ private:
     sf::Vector2u      m_tileSize;
     sf::Vector2f      m_logicalPosition; // Posizione logica di Pac-Man
     int               m_lives;           // Numero di vite del giocatore
+    
+    // Texture e sprite per Pac-Man
+    std::unique_ptr<sf::Texture> m_texture;
+    std::unique_ptr<sf::Sprite>  m_sprite;
+    bool                         m_hasTexture;
 };

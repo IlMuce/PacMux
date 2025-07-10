@@ -325,8 +325,7 @@ int main()
     sfxGhostBlue.setVolume(80.f); // Volume normale per effetti speciali
     sfxEatGhost.setVolume(85.f);
     sfxDeath.setVolume(90.f);
-    sfxMenu.setVolume(70.f);
-    music.setVolume(75.f); // Volume musica di sottofondo
+    sfxMenu.setVolume(70.f); // Volume musica di sottofondo
 
     // Flag per controllare se la musica è già stata avviata
     bool musicStarted = false;
@@ -1251,12 +1250,19 @@ int main()
                 pelletTransform.translate(mapOffset);
                 window.draw(p, pelletTransform);
             }
-            // Disegna i Super Pellet come cerchi piccoli e peach
+            // Super Pellet lampeggianti: visibile (peach) o invisibile (trasparente)
+            static sf::Clock blinkClock;
+            float blink = 1.0f;
+            sf::Color pelletColor = sf::Color(255, 209, 128); // sempre visibile di default
+            if (gameStarted) {
+                blink = std::abs(std::sin(blinkClock.getElapsedTime().asSeconds() * 12)); // lampeggio ~6 volte/sec
+                pelletColor = (blink > 0.5f) ? sf::Color(255, 209, 128) : sf::Color(255, 209, 128, 0); // peach o trasparente
+            }
             for (const auto& pos : superPelletPositions) {
                 sf::CircleShape superPellet(9.f); // raggio 9px
                 superPellet.setOrigin(sf::Vector2f(9.f, 9.f));
                 superPellet.setPosition(pos + mapOffset);
-                superPellet.setFillColor(sf::Color(255, 209, 128)); // peach
+                superPellet.setFillColor(pelletColor);
                 window.draw(superPellet);
             }
             for (auto& g : ghosts) {

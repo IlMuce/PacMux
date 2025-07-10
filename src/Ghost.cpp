@@ -328,6 +328,16 @@ static const sf::IntRect CLYDE_FRAMES[4][2] = {
     { sf::IntRect(sf::Vector2i{168,617}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{185,617}, sf::Vector2i{16,16}) },
     { sf::IntRect(sf::Vector2i{202,617}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{219,617}, sf::Vector2i{16,16}) }
 };
+static const sf::IntRect FRIGHTENED_FRAMES[2] = {
+    sf::IntRect(sf::Vector2i{389,566}, sf::Vector2i{16,16}), // blu
+    sf::IntRect(sf::Vector2i{406,566}, sf::Vector2i{16,16})  // bianco
+};
+static const sf::IntRect EYES_FRAMES[4] = {
+    sf::IntRect(sf::Vector2i{389,583}, sf::Vector2i{16,16}), // sinistra
+    sf::IntRect(sf::Vector2i{406,583}, sf::Vector2i{16,16}), // su
+    sf::IntRect(sf::Vector2i{423,583}, sf::Vector2i{16,16}), // destra
+    sf::IntRect(sf::Vector2i{440,583}, sf::Vector2i{16,16})  // giù
+};
 static constexpr float GHOST_ANIMATION_INTERVAL = 0.12f; // secondi tra un frame e l'altro
 
 void Ghost::draw(sf::RenderTarget& target, sf::RenderStates states) const {
@@ -335,15 +345,11 @@ void Ghost::draw(sf::RenderTarget& target, sf::RenderStates states) const {
     sf::CircleShape shape = m_shape;
     shape.setPosition(m_drawPos);
     if (m_isFrightened) {
-        // Lampeggia tra blu e bianco negli ultimi 2 secondi
-        if (m_frightenedDuration - m_frightenedTimer < 2.f) {
-            int blink = int(m_frightenedTimer * 8) % 2;
-            shape.setFillColor(blink ? sf::Color(255,255,255) : sf::Color(0,0,255));
-        } else {
-            shape.setFillColor(sf::Color(0, 0, 255));
-        }
+        // Solo blu, alterna saturazione per effetto lampeggio
+        float blink = (m_frightenedDuration - m_frightenedTimer < 2.f) ? std::abs(std::sin(m_frightenedTimer * 8)) : 1.f;
+        shape.setFillColor(sf::Color(0, 0, 255 * blink));
     } else if (m_eaten || m_isReturningToHouse) {
-        shape.setFillColor(sf::Color(200,200,200)); // Gray/white for eyes
+        shape.setFillColor(sf::Color(200,200,200)); // Gray/white for eyes fallback
     }
     target.draw(shape, states);
 }

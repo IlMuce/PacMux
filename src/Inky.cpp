@@ -125,6 +125,23 @@ void Inky::draw(sf::RenderTarget& target, sf::RenderStates states) const {
     states.transform *= getTransform();
     if (m_hasTexture && m_sprite) {
         m_sprite->setPosition(m_drawPos);
+        if (m_eaten || m_isReturningToHouse) {
+            int dir = 2;
+            if (m_direction.x < 0) dir = 0;
+            else if (m_direction.x > 0) dir = 2;
+            else if (m_direction.y < 0) dir = 1;
+            else if (m_direction.y > 0) dir = 3;
+            m_sprite->setTextureRect(EYES_FRAMES[dir]);
+        } else if (m_isFrightened) {
+            m_sprite->setTextureRect(FRIGHTENED_FRAMES[m_animFrame % 2]);
+        } else {
+            int dir = 2;
+            if (m_direction.x < 0) dir = 0;
+            else if (m_direction.x > 0) dir = 2;
+            else if (m_direction.y < 0) dir = 1;
+            else if (m_direction.y > 0) dir = 3;
+            m_sprite->setTextureRect(INKY_FRAMES[dir][m_animFrame]);
+        }
         target.draw(*m_sprite, states);
     } else {
         sf::CircleShape shape = m_shape;

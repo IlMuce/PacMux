@@ -229,7 +229,7 @@ int main()
     // Wrap-around per Pac-Man: correggi posizione se esce dai bordi
     // RIMOSSO: i controlli di wrap-around ora sono gestiti nella classe Player
     
-    sf::RenderWindow window(mode, "Fake Pacman", sf::Style::Titlebar | sf::Style::Close);
+    sf::RenderWindow window(mode, "PacMux", sf::Style::Titlebar | sf::Style::Close);
     window.setFramerateLimit(60); // Ensure a consistent framerate
 
     // Trova la posizione di spawn di Pac-Man ('P') o usa il centro

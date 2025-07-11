@@ -1,4 +1,4 @@
-# Pacman-SFML 3.0
+# PacMux
 
 Questo repository contiene una versione base funzionante (MVP, Minimum Viable Product) di un clone di Pac-Man realizzato con SFML 3.0 e CMake.
 
@@ -91,7 +91,7 @@ L’eseguibile verrà generato in `build/Release/Pacman.exe` e dovrà essere ese
 - **Freccia sinistra/destra/su/giù**: muovi Pac-Man lungo i corridoi a griglia.
 - Raccogli tutti i pellet per avanzare di livello.
 - **Evita i fantasmi**: Se un fantasma ti tocca, perdi una vita. Se perdi tutte le vite é game over.
-- Il punteggio aumenta di 10 punti per pellet, 200 punti per fantasma mangiato.
+- Il punteggio aumenta di 10 punti per pellet, 200 punti per fantasma mangiato (con moltiplicatore).
 - Usa i tunnel laterali per sfuggire ai fantasmi con il wrap-around.
 
 ## Funzionalità della Release 1
@@ -165,21 +165,33 @@ L’eseguibile verrà generato in `build/Release/Pacman.exe` e dovrà essere ese
     8. GhostNormalMove.mp3 - Movimento normale dei fantasmi (loop continuo)
 - Aggiunta possibilità di modificare livelli audio di ciascun suono.
 
-### Funzionalità della Release 9 (COMPLETATA)
+### Funzionalità della Release 9
 - **Sistema Highscore completo**: Top 10 persistente con input nome giocatore e schermata Hall of Fame
 - **Mappa 3 con tema arancione**: Stile Ms. Pac-Man con colori arancione chiaro
 - **Bug fix critici**: Risolti chomp infinito, highscore dopo 7° record, parser JSON robusto
 
+## Funzionalità della Release 10
+- Aggiunte texture e animazioni per Pacman (movimento in ogni direzione e morte).
+- Aggiunte texture e animazioni per tutti e 4 i Fantasmini (movimento, modalitá frightened e "occhi" una volta mangiati).
+- Modificati dimensione e colore di Pellet e Super Pellet per renderli piú simili all'originale.
+- Aggiunta punteggio a vista e moltiplicatore quando Pacman mangia i fantasmini.
+- Corretti svariati bug legati a fanatsmi, stati di gioco e audio.
+
 ## Prossime Release (Roadmap)
 
-## Release 10: Polish finale
-- Animazioni, sprite, effetti particellari, transizioni, ottimizzazioni, bugfix, refactoring.
+## Release da 11 in poi:
+- Aggiunta frutta
+- Aggiunta livelli
+- Grafica migliorata
+- Miglioramenti texture del labirinto
+- Correzione dei bug noti
 
 ## Bug Noti
 - Fantasmi si bloccano quando tentano di attraversare il teleport finché pacman non li fa entrare in modalitá frightened.
   Soluzione temporanea: divieto di attraversamento dei teleport ai fantasmi.
 - Pacman può uscire dalla mappa in determinate circostanze se si mette in pausa mentre é in movimento e si trova vicino ad un muro.
   Soluzione temporanea: si può mettere in pausa solo se pacman é completamente fermo.
+- Se Pacman muore ed é toccato per piú frame da un fantasma possono esserci piú animazioni di morte.
 
 ---
 

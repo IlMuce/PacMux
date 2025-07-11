@@ -4,6 +4,11 @@
 #include <cmath>
 #include <iostream>
 
+// Imposta la direzione di Pac-Man
+void Player::setDirection(const sf::Vector2f& dir) {
+    m_direction = dir;
+}
+
 // --- ANIMAZIONE SPRITE PAC-MAN ---
 // Ordine righe: sinistra, su, destra, giù (y=499, 531, 563, 595)
 // Colonne: bocca chiusa (x=1), semi-aperta (x=33), aperta (x=65)

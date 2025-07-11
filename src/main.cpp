@@ -510,6 +510,15 @@ int main()
     bool gameOver = false;
     bool gameStarted = false;
     bool recordChecked = false; // Flag per controllare se il record è già stato verificato
+    // --- VARIABILI PER PAUSA DOPO MANGIATO FANTASMA (combo classica) ---
+    bool isGhostEatPause = false;
+    sf::Clock ghostEatPauseClock;
+    int ghostEatCombo = 0;
+    int ghostEatScore = 0;
+    constexpr float GHOST_EAT_PAUSE = 1.0f;
+    sf::Vector2f pacmanDirBeforePause;
+    std::vector<sf::Vector2f> ghostsDirBeforePause(4);
+
     while (window.isOpen()) {
         float dt = clock.restart().asSeconds();
 
@@ -1180,8 +1189,73 @@ int main()
                 gameOver = true;
             }
 
+            // --- BLOCCO PAUSA DOPO MANGIATO FANTASMA (combo classica) ---
+            if (isGhostEatPause) {
+                // Blocca movimento Pac-Man e fantasmi SOLO durante la pausa
+                pac.setDirection({0.f, 0.f});
+                for (size_t i = 0; i < ghosts.size(); ++i) ghosts[i]->setDirection({0.f, 0.f});
+                // Mostra punteggio sopra Pac-Man
+                sf::Vector2f mapOffset;
+                mapOffset.x = (window.getSize().x - map.getSize().x * tileSize.x) / 2.f;
+                mapOffset.y = (window.getSize().y - map.getSize().y * tileSize.y) / 2.f;
+                // Mostra punteggio sopra Pac-Man
+                sf::Font font(fontPath.string());
+                sf::Text ghostScoreText(font, std::to_string(ghostEatScore), 18);
+                ghostScoreText.setFillColor(sf::Color(0, 191, 255)); // Blu frightened
+                ghostScoreText.setOutlineColor(sf::Color::Black);
+                ghostScoreText.setOutlineThickness(4);
+                ghostScoreText.setStyle(sf::Text::Bold);
+                auto textRect = ghostScoreText.getLocalBounds();
+                ghostScoreText.setOrigin({textRect.position.x + textRect.size.x / 2.f, textRect.position.y + textRect.size.y / 2.f});
+                ghostScoreText.setPosition(sf::Vector2f(pac.getPosition().x + mapOffset.x, pac.getPosition().y + mapOffset.y - 40));
+                window.clear();
+                // Disegna la mappa e gli oggetti normalmente
+                sf::Transform mapTransform;
+                mapTransform.translate(mapOffset);
+                window.draw(map, mapTransform);
+                for (auto& p : pellets) {
+                    sf::Transform pelletTransform;
+                    pelletTransform.translate(mapOffset);
+                    window.draw(p, pelletTransform);
+                }
+                for (const auto& pos : superPelletPositions) {
+                    sf::CircleShape superPellet(9.f);
+                    superPellet.setOrigin(sf::Vector2f(9.f, 9.f));
+                    superPellet.setPosition(pos + mapOffset);
+                    superPellet.setFillColor(sf::Color(255, 209, 128));
+                    window.draw(superPellet);
+                }
+                for (auto& g : ghosts) {
+                    sf::Transform ghostTransform;
+                    ghostTransform.translate(mapOffset);
+                    window.draw(*g, ghostTransform);
+                }
+                sf::Transform pacTransform;
+                pacTransform.translate(mapOffset);
+                window.draw(pac, pacTransform);
+                score->draw(window);
+                // HUD
+                sf::Text livesText(font, "Vite: " + std::to_string(pac.getLives()), 20);
+                livesText.setFillColor(sf::Color::White);
+                livesText.setPosition(sf::Vector2f(window.getSize().x - 140.f, 10.f));
+                window.draw(livesText);
+                sf::Text levelText(font, "Livello: " + std::to_string(currentLevel + 1), 20);
+                levelText.setFillColor(sf::Color::Cyan);
+                levelText.setPosition(sf::Vector2f(10.f, window.getSize().y - 30.f));
+                window.draw(levelText);
+                window.draw(ghostScoreText);
+                window.display();
+                if (ghostEatPauseClock.getElapsedTime().asSeconds() >= GHOST_EAT_PAUSE) {
+                    isGhostEatPause = false;
+                    // Ripristina la direzione di Pac-Man e dei fantasmi
+                    pac.setDirection(pacmanDirBeforePause);
+                    for (size_t i = 0; i < ghosts.size(); ++i) ghosts[i]->setDirection(ghostsDirBeforePause[i]);
+                }
+                continue;
+            }
             // Collisione Pac-Man / Fantasmi
-            for (const auto& ghost : ghosts) {
+            for (size_t i = 0; i < ghosts.size(); ++i) {
+                const auto& ghost = ghosts[i];
                 float dist = (pac.getPosition() - ghost->getPosition()).x * (pac.getPosition() - ghost->getPosition()).x +
                              (pac.getPosition() - ghost->getPosition()).y * (pac.getPosition() - ghost->getPosition()).y;
                 float minDist = 24.f * 24.f; // raggio Pac-Man + raggio Ghost (approssimato)
@@ -1189,7 +1263,11 @@ int main()
                     if (ghost->isFrightened() && !ghost->isEaten()) {
                         ghost->setEaten(true);
                         sfxEatGhost.play();
-                        score->add(200);
+                        // Combo: 200, 400, 800, 1600
+                        static const int ghostScores[] = {200, 400, 800, 1600};
+                        ghostEatScore = ghostScores[std::min(ghostEatCombo, 3)];
+                        score->add(ghostEatScore);
+                        ghostEatCombo++;
                         // Controlla se è stata raggiunta una vita extra dopo aver mangiato un fantasma
                         if (score->checkExtraLife()) {
                             // Ferma tutti i suoni durante il messaggio di vita extra
@@ -1198,10 +1276,14 @@ int main()
                             ghostSoundPlaying = false;
                             chompActive = false;
                             sfxChomp.setVolume(0.f); // Silenzia il chomp
-                            
                             pac.setLives(pac.getLives() + 1);
                             showMessage(window, "VITA EXTRA!\n\nHai raggiunto 10.000 punti!\n\nVite: " + std::to_string(pac.getLives()), fontPath.string());
                         }
+                        // Salva la direzione di Pac-Man e dei fantasmi prima della pausa
+                        pacmanDirBeforePause = pac.getDirection();
+                        for (size_t j = 0; j < ghosts.size(); ++j) ghostsDirBeforePause[j] = ghosts[j]->getDirection();
+                        isGhostEatPause = true;
+                        ghostEatPauseClock.restart();
                         continue;
                     } else if (!ghost->isEaten() && !ghost->isReturningToHouse()) {
                         // Avvia animazione morte Pac-Man
@@ -1253,6 +1335,15 @@ int main()
                     gameOver = true;
                 }
             }
+            // --- RESET COMBO SOLO SE NESSUN FANTASMA È FRIGHTENED ---
+            bool anyFrightened = false;
+            for (const auto& ghost : ghosts) {
+                if (ghost->isFrightened() && !ghost->isEaten()) {
+                    anyFrightened = true;
+                    break;
+                }
+            }
+            if (!anyFrightened) ghostEatCombo = 0;
         }
         // Gestione gameOver e gameStarted SOLO durante il gameplay
         if (gameState == GameState::PLAYING) {

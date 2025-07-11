@@ -12,6 +12,7 @@ public:
 
     sf::Vector2f getPosition() const { return m_shape.getPosition(); }
     sf::Vector2f getDirection() const { return m_direction; }
+    void setDirection(const sf::Vector2f& dir);
 
     // Imposta la posizione di Pac-Man
     void setPosition(const sf::Vector2f& position) { 

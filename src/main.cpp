@@ -187,6 +187,7 @@ int main()
     fs::path assets = exeDir / "assets";
     fs::path mapPath = assets / "map1.txt";
     fs::path fontPath = assets / "pacman.ttf";
+    fs::path audioDir = assets / "audio";
 
     // Verifica la presenza degli asset fondamentali
     if (!fs::exists(mapPath)) {
@@ -264,35 +265,35 @@ int main()
 
     // --- AUDIO: Caricamento effetti e musica ---
     sf::Music music;
-    if (!music.openFromFile((assets / "pacman_beginning.wav").string())) {
+    if (!music.openFromFile((audioDir / "pacman_beginning.wav").string())) {
         std::cerr << "[AUDIO] Errore caricamento musica di sottofondo!\n";
     }
     music.setLooping(false); // SFML 3: musica suona una volta sola
     // NON avviare la musica qui - sarà avviata quando inizia il gameplay
 
     sf::SoundBuffer bufChomp, bufChompMenu, bufEatGhost, bufDeath, bufMenu, bufGhostBlue, bufGhostReturn, bufGhostNormal;
-    if (!bufChomp.loadFromFile((assets / "PacmanChomp.mp3").string())) {
+    if (!bufChomp.loadFromFile((audioDir / "PacmanChomp.mp3").string())) {
         std::cerr << "[AUDIO] Errore caricamento effetto chomp!\n";
     }
-    if (!bufChompMenu.loadFromFile((assets / "pacman_chomp.wav").string())) {
+    if (!bufChompMenu.loadFromFile((audioDir / "pacman_chomp.wav").string())) {
         std::cerr << "[AUDIO] Errore caricamento effetto chomp menu!\n";
     }
-    if (!bufEatGhost.loadFromFile((assets / "pacman_eatghost.wav").string())) {
+    if (!bufEatGhost.loadFromFile((audioDir / "pacman_eatghost.wav").string())) {
         std::cerr << "[AUDIO] Errore caricamento effetto eat ghost!\n";
     }
-    if (!bufDeath.loadFromFile((assets / "pacman_death.wav").string())) {
+    if (!bufDeath.loadFromFile((audioDir / "pacman_death.wav").string())) {
         std::cerr << "[AUDIO] Errore caricamento effetto death!\n";
     }
-    if (!bufMenu.loadFromFile((assets / "pacman_menupausa.wav").string())) {
+    if (!bufMenu.loadFromFile((audioDir / "pacman_menupausa.wav").string())) {
         std::cerr << "[AUDIO] Errore caricamento effetto menu!\n";
     }
-    if (!bufGhostBlue.loadFromFile((assets / "GhostTurntoBlue.mp3").string())) {
+    if (!bufGhostBlue.loadFromFile((audioDir / "GhostTurntoBlue.mp3").string())) {
         std::cerr << "[AUDIO] Errore caricamento effetto ghost blue!\n";
     }
-    if (!bufGhostReturn.loadFromFile((assets / "GhostReturntoHome.mp3").string())) {
+    if (!bufGhostReturn.loadFromFile((audioDir / "GhostReturntoHome.mp3").string())) {
         std::cerr << "[AUDIO] Errore caricamento effetto ghost return!\n";
     }
-    if (!bufGhostNormal.loadFromFile((assets / "GhostNormalMove.mp3").string())) {
+    if (!bufGhostNormal.loadFromFile((audioDir / "GhostNormalMove.mp3").string())) {
         std::cerr << "[AUDIO] Errore caricamento effetto ghost normal!\n";
     }
 
@@ -578,14 +579,22 @@ int main()
                         sfxEatGhost.play(); // Suono di conferma restart
                         // Riavvia il gioco - RESETTA tutto
                         gameState = GameState::PLAYING;
-                        
+
                         // Avvia la musica di sottofondo solo se non è già stata avviata
                         if (!musicStarted) {
                             music.play();
                             musicStarted = true;
-                            canPlayGhostSounds = false; // Reset audio fantasmi quando ricomincia la musica
                         }
-                        
+                        // Reset flag audio e suoni
+                        canPlayGhostSounds = false;
+                        ghostSoundPlaying = false;
+                        chompActive = false;
+                        chompSoundStarted = false;
+                        sfxChomp.stop();
+                        sfxChomp.setVolume(60.f); // Reset volume per il prossimo uso
+                        sfxGhostNormal.stop();
+                        sfxGhostReturn.stop();
+
                         gameOver = false;
                         gameStarted = false;
                         currentLevel = 0;
@@ -958,6 +967,9 @@ int main()
             if (musicStarted && !canPlayGhostSounds) {
                 if (music.getStatus() != sf::Music::Status::Playing && gameStarted) {
                     canPlayGhostSounds = true;
+                    ghostSoundPlaying = false; // Forza il reset per evitare suoni prematuri
+                    sfxGhostNormal.stop();
+                    sfxGhostReturn.stop();
                 }
             }
             // Solo se i fantasmi possono suonare, gestisci gli audio
@@ -1088,6 +1100,8 @@ int main()
                 // Avvia il loop continuo del chomp solo la prima volta
                 if (!chompSoundStarted) {
                     chompSoundStarted = true;
+                    sfxChomp.stop(); // Forza il reset
+                    sfxChomp.setVolume(60.f);
                     sfxChomp.play(); // Inizia il loop continuo una volta sola
                 }
                 // Rendi il chomp udibile
@@ -1214,9 +1228,11 @@ int main()
                             loadLevel(currentLevel, false); // NON resettare i pellet
                             pac.setLives(currentLives); // Ripristina le vite corrette
                             ghostSoundPlaying = false; // Reset flag suono fantasmi dopo morte
-                            chompActive = false; // Ferma il chomp quando si perde una vita
+                            // --- FIX: reset chomp dopo morte ---
+                            chompActive = false;
+                            chompSoundStarted = false;
                             sfxChomp.stop();
-                            sfxChomp.setVolume(0.f);
+                            sfxChomp.setVolume(60.f); // Reset volume per il prossimo uso
                             gameOver = true;
                         }
                     }

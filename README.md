@@ -9,15 +9,18 @@ pacman-sfml/
 ├── assets/            # Risorse di gioco (mappe, font, audio)
 │   ├── map1.txt       # Livello 1
 │   ├── map2.txt       # Livello 2
+│   ├── map3.txt       # Livello 3
 │   ├── pacman.ttf     # Font del gioco
-│   ├── pacman_beginning.wav      # Musica di sottofondo
-│   ├── PacmanChomp.mp3          # Suono "wakawakawaka"
-│   ├── pacman_eatghost.wav      # Suono mangiare fantasmi
-│   ├── pacman_death.wav         # Suono morte Pac-Man
-│   ├── pacman_menupausa.wav     # Suono menu/pausa
-│   ├── GhostTurntoBlue.mp3      # Suono fantasmi blu (Super Pellet)
-│   ├── GhostReturntoHome.mp3    # Suono ritorno fantasmi alla casa
-│   └── GhostNormalMove.mp3      # Suono movimento normale fantasmi
+│   └── audio/         # Tutti i file audio sono ora qui!
+│       ├── pacman_beginning.wav      # Musica di sottofondo
+│       ├── PacmanChomp.mp3          # Suono "wakawakawaka"
+│       ├── pacman_chomp.wav         # Suono menu
+│       ├── pacman_eatghost.wav      # Suono mangiare fantasmi
+│       ├── pacman_death.wav         # Suono morte Pac-Man
+│       ├── pacman_menupausa.wav     # Suono menu/pausa
+│       ├── GhostTurntoBlue.mp3      # Suono fantasmi blu (Super Pellet)
+│       ├── GhostReturntoHome.mp3    # Suono ritorno fantasmi alla casa
+│       └── GhostNormalMove.mp3      # Suono movimento normale fantasmi
 ├── include/           # Header C++ (tutti gli .hpp)
 │   ├── Blinky.hpp     # AI Blinky
 │   ├── Pinky.hpp      # AI Pinky
@@ -42,6 +45,29 @@ pacman-sfml/
 ├── CMakeLists.txt     # Configurazione di build
 └── README.md          # Questo file
 ```
+
+## Attenzione: file richiesti e posizione
+
+Tutti i file audio sono ora nella cartella `assets/audio/` e **non** più direttamente in `assets/`.
+
+**File audio richiesti in `assets/audio/`:**
+- pacman_beginning.wav
+- PacmanChomp.mp3
+- pacman_chomp.wav
+- pacman_eatghost.wav
+- pacman_death.wav
+- pacman_menupausa.wav
+- GhostTurntoBlue.mp3
+- GhostReturntoHome.mp3
+- GhostNormalMove.mp3
+
+**Se uno di questi file non è presente o è in una posizione diversa, il gioco non funzionerà correttamente!**
+
+**Altri file richiesti:**
+- `assets/pacman.ttf` (font)
+- `assets/map1.txt`, `assets/map2.txt`, `assets/map3.txt` (mappe)
+
+Se sposti o rinomini questi file, aggiorna anche i percorsi nel codice o ripristina la struttura sopra indicata.
 
 ## Requisiti
 

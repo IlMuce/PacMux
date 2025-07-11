@@ -1,8 +1,22 @@
 #include "Clyde.hpp"
+#include "Ghost.hpp"
 #include <cmath>
 #include <iostream>
 
 Clyde::Clyde(const sf::Vector2f& pos) : Ghost(pos, sf::Color(255, 165, 0), 12.0f, Type::Clyde) {
+    m_texture = std::make_unique<sf::Texture>();
+    if (m_texture->loadFromFile("assets/pacman.png")) {
+        m_sprite = std::make_unique<sf::Sprite>(*m_texture);
+        m_sprite->setTextureRect(CLYDE_FRAMES[2][0]); // frame iniziale: destra, anim 0
+        m_sprite->setOrigin(sf::Vector2f{8.f, 8.f});
+        float scale = 12.f / 8.f;
+        m_sprite->setScale(sf::Vector2f{scale, scale});
+        m_hasTexture = true;
+    } else {
+        m_hasTexture = false;
+    }
+    m_animTime = 0.f;
+    m_animFrame = 0;
 }
 
 void Clyde::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
@@ -62,6 +76,76 @@ void Clyde::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
         m_drawPos = m_shape.getPosition();
     } else {
         Ghost::update(dt, map, tileSize, pacmanPos, pacmanDirection, mode, gameStarted);
+    }
+    if (m_hasTexture && m_sprite) {
+        m_sprite->setPosition(m_shape.getPosition());
+        m_animTime += dt;
+        if (m_direction != sf::Vector2f{0,0}) {
+            if (m_animTime >= GHOST_ANIMATION_INTERVAL) {
+                m_animFrame = 1 - m_animFrame;
+                m_animTime = 0.f;
+            }
+        } else {
+            m_animFrame = 0;
+        }
+        int dir = 2;
+        if (m_direction.x < 0) dir = 0;
+        else if (m_direction.x > 0) dir = 2;
+        else if (m_direction.y < 0) dir = 1;
+        else if (m_direction.y > 0) dir = 3;
+        if (m_isFrightened) {
+            // Negli ultimi 2 secondi alterna tra blu e bianco ogni 0.125s (come Inky)
+            if (m_frightenedDuration - m_frightenedTimer < 2.f) {
+                bool white = (int((m_frightenedTimer * 8)) % 2) == 1;
+                if (white) {
+                    m_sprite->setTextureRect(FRIGHTENED_WHITE_FRAMES[m_animFrame % 2]);
+                } else {
+                    m_sprite->setTextureRect(FRIGHTENED_FRAMES[m_animFrame % 2]);
+                }
+            } else {
+                m_sprite->setTextureRect(FRIGHTENED_FRAMES[m_animFrame % 2]);
+            }
+        } else {
+            m_sprite->setTextureRect(CLYDE_FRAMES[dir][m_animFrame]);
+        }
+    }
+}
+
+void Clyde::draw(sf::RenderTarget& target, sf::RenderStates states) const {
+    states.transform *= getTransform();
+    if (m_hasTexture && m_sprite) {
+        m_sprite->setPosition(m_drawPos);
+        if (m_eaten || m_isReturningToHouse) {
+            int dir = 2;
+            if (m_direction.x < 0) dir = 0;
+            else if (m_direction.x > 0) dir = 2;
+            else if (m_direction.y < 0) dir = 1;
+            else if (m_direction.y > 0) dir = 3;
+            m_sprite->setTextureRect(EYES_FRAMES[dir]);
+        } else if (m_isFrightened) {
+            if (m_frightenedDuration - m_frightenedTimer < 2.f) {
+                bool white = (int((m_frightenedTimer * 8)) % 2) == 1;
+                if (white) {
+                    m_sprite->setTextureRect(FRIGHTENED_WHITE_FRAMES[m_animFrame % 2]);
+                } else {
+                    m_sprite->setTextureRect(FRIGHTENED_FRAMES[m_animFrame % 2]);
+                }
+            } else {
+                m_sprite->setTextureRect(FRIGHTENED_FRAMES[m_animFrame % 2]);
+            }
+        } else {
+            int dir = 2;
+            if (m_direction.x < 0) dir = 0;
+            else if (m_direction.x > 0) dir = 2;
+            else if (m_direction.y < 0) dir = 1;
+            else if (m_direction.y > 0) dir = 3;
+            m_sprite->setTextureRect(CLYDE_FRAMES[dir][m_animFrame]);
+        }
+        target.draw(*m_sprite, states);
+    } else {
+        sf::CircleShape shape = m_shape;
+        shape.setPosition(m_drawPos);
+        target.draw(shape, states);
     }
 }
 

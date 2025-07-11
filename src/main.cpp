@@ -187,6 +187,7 @@ int main()
     fs::path assets = exeDir / "assets";
     fs::path mapPath = assets / "map1.txt";
     fs::path fontPath = assets / "pacman.ttf";
+    fs::path audioDir = assets / "audio";
 
     // Verifica la presenza degli asset fondamentali
     if (!fs::exists(mapPath)) {
@@ -228,7 +229,7 @@ int main()
     // Wrap-around per Pac-Man: correggi posizione se esce dai bordi
     // RIMOSSO: i controlli di wrap-around ora sono gestiti nella classe Player
     
-    sf::RenderWindow window(mode, "Fake Pacman", sf::Style::Titlebar | sf::Style::Close);
+    sf::RenderWindow window(mode, "PacMux", sf::Style::Titlebar | sf::Style::Close);
     window.setFramerateLimit(60); // Ensure a consistent framerate
 
     // Trova la posizione di spawn di Pac-Man ('P') o usa il centro
@@ -264,35 +265,35 @@ int main()
 
     // --- AUDIO: Caricamento effetti e musica ---
     sf::Music music;
-    if (!music.openFromFile((assets / "pacman_beginning.wav").string())) {
+    if (!music.openFromFile((audioDir / "pacman_beginning.wav").string())) {
         std::cerr << "[AUDIO] Errore caricamento musica di sottofondo!\n";
     }
     music.setLooping(false); // SFML 3: musica suona una volta sola
     // NON avviare la musica qui - sarà avviata quando inizia il gameplay
 
     sf::SoundBuffer bufChomp, bufChompMenu, bufEatGhost, bufDeath, bufMenu, bufGhostBlue, bufGhostReturn, bufGhostNormal;
-    if (!bufChomp.loadFromFile((assets / "PacmanChomp.mp3").string())) {
+    if (!bufChomp.loadFromFile((audioDir / "PacmanChomp.mp3").string())) {
         std::cerr << "[AUDIO] Errore caricamento effetto chomp!\n";
     }
-    if (!bufChompMenu.loadFromFile((assets / "pacman_chomp.wav").string())) {
+    if (!bufChompMenu.loadFromFile((audioDir / "pacman_chomp.wav").string())) {
         std::cerr << "[AUDIO] Errore caricamento effetto chomp menu!\n";
     }
-    if (!bufEatGhost.loadFromFile((assets / "pacman_eatghost.wav").string())) {
+    if (!bufEatGhost.loadFromFile((audioDir / "pacman_eatghost.wav").string())) {
         std::cerr << "[AUDIO] Errore caricamento effetto eat ghost!\n";
     }
-    if (!bufDeath.loadFromFile((assets / "pacman_death.wav").string())) {
+    if (!bufDeath.loadFromFile((audioDir / "pacman_death.wav").string())) {
         std::cerr << "[AUDIO] Errore caricamento effetto death!\n";
     }
-    if (!bufMenu.loadFromFile((assets / "pacman_menupausa.wav").string())) {
+    if (!bufMenu.loadFromFile((audioDir / "pacman_menupausa.wav").string())) {
         std::cerr << "[AUDIO] Errore caricamento effetto menu!\n";
     }
-    if (!bufGhostBlue.loadFromFile((assets / "GhostTurntoBlue.mp3").string())) {
+    if (!bufGhostBlue.loadFromFile((audioDir / "GhostTurntoBlue.mp3").string())) {
         std::cerr << "[AUDIO] Errore caricamento effetto ghost blue!\n";
     }
-    if (!bufGhostReturn.loadFromFile((assets / "GhostReturntoHome.mp3").string())) {
+    if (!bufGhostReturn.loadFromFile((audioDir / "GhostReturntoHome.mp3").string())) {
         std::cerr << "[AUDIO] Errore caricamento effetto ghost return!\n";
     }
-    if (!bufGhostNormal.loadFromFile((assets / "GhostNormalMove.mp3").string())) {
+    if (!bufGhostNormal.loadFromFile((audioDir / "GhostNormalMove.mp3").string())) {
         std::cerr << "[AUDIO] Errore caricamento effetto ghost normal!\n";
     }
 
@@ -325,8 +326,7 @@ int main()
     sfxGhostBlue.setVolume(80.f); // Volume normale per effetti speciali
     sfxEatGhost.setVolume(85.f);
     sfxDeath.setVolume(90.f);
-    sfxMenu.setVolume(70.f);
-    music.setVolume(75.f); // Volume musica di sottofondo
+    sfxMenu.setVolume(70.f); // Volume musica di sottofondo
 
     // Flag per controllare se la musica è già stata avviata
     bool musicStarted = false;
@@ -510,6 +510,15 @@ int main()
     bool gameOver = false;
     bool gameStarted = false;
     bool recordChecked = false; // Flag per controllare se il record è già stato verificato
+    // --- VARIABILI PER PAUSA DOPO MANGIATO FANTASMA (combo classica) ---
+    bool isGhostEatPause = false;
+    sf::Clock ghostEatPauseClock;
+    int ghostEatCombo = 0;
+    int ghostEatScore = 0;
+    constexpr float GHOST_EAT_PAUSE = 1.0f;
+    sf::Vector2f pacmanDirBeforePause;
+    std::vector<sf::Vector2f> ghostsDirBeforePause(4);
+
     while (window.isOpen()) {
         float dt = clock.restart().asSeconds();
 
@@ -579,14 +588,22 @@ int main()
                         sfxEatGhost.play(); // Suono di conferma restart
                         // Riavvia il gioco - RESETTA tutto
                         gameState = GameState::PLAYING;
-                        
+
                         // Avvia la musica di sottofondo solo se non è già stata avviata
                         if (!musicStarted) {
                             music.play();
                             musicStarted = true;
-                            canPlayGhostSounds = false; // Reset audio fantasmi quando ricomincia la musica
                         }
-                        
+                        // Reset flag audio e suoni
+                        canPlayGhostSounds = false;
+                        ghostSoundPlaying = false;
+                        chompActive = false;
+                        chompSoundStarted = false;
+                        sfxChomp.stop();
+                        sfxChomp.setVolume(60.f); // Reset volume per il prossimo uso
+                        sfxGhostNormal.stop();
+                        sfxGhostReturn.stop();
+
                         gameOver = false;
                         gameStarted = false;
                         currentLevel = 0;
@@ -937,18 +954,33 @@ int main()
 
         // Solo se il gioco è in stato PLAYING, aggiorna la logica di gioco
         if (gameState == GameState::PLAYING && !gameOver) {
+            // Blocca movimento di Pac-Man e fantasmi finché la musica iniziale non è finita
+            bool introMusicPlaying = (musicStarted && music.getStatus() == sf::Music::Status::Playing);
+            
+            // Blocca tutto il gioco finché la musica iniziale è in riproduzione
+            if (introMusicPlaying) {
+                // Ferma anche il suono chomp se per qualche motivo è partito
+                chompActive = false;
+                sfxChomp.stop();
+                sfxChomp.setVolume(0.f);
+                // Blocca anche i fantasmi
+                // Non aggiornare Pac-Man o fantasmi
+                // Salta direttamente al rendering
+                goto render_section;
+            }
             // Aggiorna il giocatore
             pac.update(dt, map, tileSize);
             
             // --- GESTIONE SUONO FANTASMI IN MOVIMENTO ---
-            // Controlla se la musica di inizio è finita per permettere ai fantasmi di suonare
+            // Consenti suoni fantasmi SOLO dopo che Pac-Man ha iniziato a muoversi
             if (musicStarted && !canPlayGhostSounds) {
-                if (music.getStatus() != sf::Music::Status::Playing) {
+                if (music.getStatus() != sf::Music::Status::Playing && gameStarted) {
                     canPlayGhostSounds = true;
-                    // std::cout << "[AUDIO] Musica di inizio finita, abilitando suoni fantasmi\n";
+                    ghostSoundPlaying = false; // Forza il reset per evitare suoni prematuri
+                    sfxGhostNormal.stop();
+                    sfxGhostReturn.stop();
                 }
             }
-            
             // Solo se i fantasmi possono suonare, gestisci gli audio
             if (canPlayGhostSounds) {
                 // Determina quale suono dei fantasmi dovrebbe essere attivo
@@ -1000,7 +1032,8 @@ int main()
                 
                 // Mantieni i suoni attivi se non sono cambiati gli stati (controllo meno frequente)
                 static sf::Clock maintainSoundCheck;
-                if (maintainSoundCheck.getElapsedTime().asSeconds() > 1.0f) { // Controlla ogni secondo
+                if (maintainSoundCheck.getElapsedTime().asSeconds() > 1.0f) // Controlla ogni secondo
+                {
                     if (anyReturning && sfxGhostReturn.getStatus() != sf::Sound::Status::Playing) {
                         sfxGhostReturn.play();
                     } else if (!anyFrightened && !anyReturning && sfxGhostNormal.getStatus() != sf::Sound::Status::Playing) {
@@ -1021,7 +1054,7 @@ int main()
                 }
             }
 
-            // Aggiorna i fantasmi con la nuova architettura
+            // Aggiorna i fantasmi con la nuova architettura SOLO se la musica iniziale  e8 finita
             for (size_t i = 0; i < ghosts.size(); ++i) {
                 Ghost::Mode m = (ghostMode == GhostMode::Scatter) ? Ghost::Mode::Scatter : Ghost::Mode::Chase;
                 
@@ -1076,6 +1109,8 @@ int main()
                 // Avvia il loop continuo del chomp solo la prima volta
                 if (!chompSoundStarted) {
                     chompSoundStarted = true;
+                    sfxChomp.stop(); // Forza il reset
+                    sfxChomp.setVolume(60.f);
                     sfxChomp.play(); // Inizia il loop continuo una volta sola
                 }
                 // Rendi il chomp udibile
@@ -1085,7 +1120,6 @@ int main()
                 }
                 lastPelletTimer.restart(); // Reset timer quando si mangia un pellet
             }
-            
             // Silenzia il chomp se non si mangiano pellet da un po' (ma non fermarlo!)
             if (chompActive && lastPelletTimer.getElapsedTime().asMilliseconds() > 300) {
                 chompActive = false;
@@ -1119,10 +1153,10 @@ int main()
             if (it != superPelletPositions.end()) {
                 superPelletPositions.erase(it);
                 sfxGhostBlue.play();
-                // TODO: Attiva modalità Frightened per tutti i fantasmi
-                // for (auto& g : ghosts) g->setFrightened(...);
-                // Attiva modalità Frightened per tutti i fantasmi
-                for (auto& g : ghosts) g->setFrightened(frightenedBaseDuration);
+                // Attiva frightened SOLO per fantasmi già usciti
+                for (auto& g : ghosts) {
+                    if (g->isReleased()) g->setFrightened(frightenedBaseDuration);
+                }
             }
 
             // Se tutti i pellet sono stati raccolti, mostra messaggio e passa al livello successivo
@@ -1155,8 +1189,73 @@ int main()
                 gameOver = true;
             }
 
+            // --- BLOCCO PAUSA DOPO MANGIATO FANTASMA (combo classica) ---
+            if (isGhostEatPause) {
+                // Blocca movimento Pac-Man e fantasmi SOLO durante la pausa
+                pac.setDirection({0.f, 0.f});
+                for (size_t i = 0; i < ghosts.size(); ++i) ghosts[i]->setDirection({0.f, 0.f});
+                // Mostra punteggio sopra Pac-Man
+                sf::Vector2f mapOffset;
+                mapOffset.x = (window.getSize().x - map.getSize().x * tileSize.x) / 2.f;
+                mapOffset.y = (window.getSize().y - map.getSize().y * tileSize.y) / 2.f;
+                // Mostra punteggio sopra Pac-Man
+                sf::Font font(fontPath.string());
+                sf::Text ghostScoreText(font, std::to_string(ghostEatScore), 18);
+                ghostScoreText.setFillColor(sf::Color(0, 191, 255)); // Blu frightened
+                ghostScoreText.setOutlineColor(sf::Color::Black);
+                ghostScoreText.setOutlineThickness(4);
+                ghostScoreText.setStyle(sf::Text::Bold);
+                auto textRect = ghostScoreText.getLocalBounds();
+                ghostScoreText.setOrigin({textRect.position.x + textRect.size.x / 2.f, textRect.position.y + textRect.size.y / 2.f});
+                ghostScoreText.setPosition(sf::Vector2f(pac.getPosition().x + mapOffset.x, pac.getPosition().y + mapOffset.y - 40));
+                window.clear();
+                // Disegna la mappa e gli oggetti normalmente
+                sf::Transform mapTransform;
+                mapTransform.translate(mapOffset);
+                window.draw(map, mapTransform);
+                for (auto& p : pellets) {
+                    sf::Transform pelletTransform;
+                    pelletTransform.translate(mapOffset);
+                    window.draw(p, pelletTransform);
+                }
+                for (const auto& pos : superPelletPositions) {
+                    sf::CircleShape superPellet(9.f);
+                    superPellet.setOrigin(sf::Vector2f(9.f, 9.f));
+                    superPellet.setPosition(pos + mapOffset);
+                    superPellet.setFillColor(sf::Color(255, 209, 128));
+                    window.draw(superPellet);
+                }
+                for (auto& g : ghosts) {
+                    sf::Transform ghostTransform;
+                    ghostTransform.translate(mapOffset);
+                    window.draw(*g, ghostTransform);
+                }
+                sf::Transform pacTransform;
+                pacTransform.translate(mapOffset);
+                window.draw(pac, pacTransform);
+                score->draw(window);
+                // HUD
+                sf::Text livesText(font, "Vite: " + std::to_string(pac.getLives()), 20);
+                livesText.setFillColor(sf::Color::White);
+                livesText.setPosition(sf::Vector2f(window.getSize().x - 140.f, 10.f));
+                window.draw(livesText);
+                sf::Text levelText(font, "Livello: " + std::to_string(currentLevel + 1), 20);
+                levelText.setFillColor(sf::Color::Cyan);
+                levelText.setPosition(sf::Vector2f(10.f, window.getSize().y - 30.f));
+                window.draw(levelText);
+                window.draw(ghostScoreText);
+                window.display();
+                if (ghostEatPauseClock.getElapsedTime().asSeconds() >= GHOST_EAT_PAUSE) {
+                    isGhostEatPause = false;
+                    // Ripristina la direzione di Pac-Man e dei fantasmi
+                    pac.setDirection(pacmanDirBeforePause);
+                    for (size_t i = 0; i < ghosts.size(); ++i) ghosts[i]->setDirection(ghostsDirBeforePause[i]);
+                }
+                continue;
+            }
             // Collisione Pac-Man / Fantasmi
-            for (const auto& ghost : ghosts) {
+            for (size_t i = 0; i < ghosts.size(); ++i) {
+                const auto& ghost = ghosts[i];
                 float dist = (pac.getPosition() - ghost->getPosition()).x * (pac.getPosition() - ghost->getPosition()).x +
                              (pac.getPosition() - ghost->getPosition()).y * (pac.getPosition() - ghost->getPosition()).y;
                 float minDist = 24.f * 24.f; // raggio Pac-Man + raggio Ghost (approssimato)
@@ -1164,7 +1263,11 @@ int main()
                     if (ghost->isFrightened() && !ghost->isEaten()) {
                         ghost->setEaten(true);
                         sfxEatGhost.play();
-                        score->add(200);
+                        // Combo: 200, 400, 800, 1600
+                        static const int ghostScores[] = {200, 400, 800, 1600};
+                        ghostEatScore = ghostScores[std::min(ghostEatCombo, 3)];
+                        score->add(ghostEatScore);
+                        ghostEatCombo++;
                         // Controlla se è stata raggiunta una vita extra dopo aver mangiato un fantasma
                         if (score->checkExtraLife()) {
                             // Ferma tutti i suoni durante il messaggio di vita extra
@@ -1173,41 +1276,75 @@ int main()
                             ghostSoundPlaying = false;
                             chompActive = false;
                             sfxChomp.setVolume(0.f); // Silenzia il chomp
-                            
                             pac.setLives(pac.getLives() + 1);
                             showMessage(window, "VITA EXTRA!\n\nHai raggiunto 10.000 punti!\n\nVite: " + std::to_string(pac.getLives()), fontPath.string());
                         }
+                        // Salva la direzione di Pac-Man e dei fantasmi prima della pausa
+                        pacmanDirBeforePause = pac.getDirection();
+                        for (size_t j = 0; j < ghosts.size(); ++j) ghostsDirBeforePause[j] = ghosts[j]->getDirection();
+                        isGhostEatPause = true;
+                        ghostEatPauseClock.restart();
                         continue;
                     } else if (!ghost->isEaten() && !ghost->isReturningToHouse()) {
-                        // Diminuisci le vite del giocatore
-                        pac.loseLife();
-                        sfxGhostNormal.stop(); // Ferma il suono fantasmi quando Pac-Man muore
-                        sfxGhostReturn.stop(); // Ferma anche il suono di ritorno
-                        ghostSoundPlaying = false; // Reset flag suono fantasmi
-                        sfxDeath.play();
-                        if (pac.getLives() <= 0) {
-                            // Ferma tutti i suoni quando si va in Game Over
+                        // Avvia animazione morte Pac-Man
+                        if (!pac.isDying()) {
+                            pac.startDeathAnimation();
+                            sfxGhostNormal.stop(); // Ferma il suono fantasmi quando Pac-Man muore
+                            sfxGhostReturn.stop(); // Ferma anche il suono di ritorno
+                            ghostSoundPlaying = false; // Reset flag suono fantasmi
+                            // SILENZIA IMMEDIATAMENTE IL CHOMP
                             chompActive = false;
-                            sfxChomp.setVolume(0.f); // Silenzia il chomp
-                            // Game Over - passa alla schermata Game Over
-                            gameState = GameState::GAME_OVER;
-                        } else {
-                            showMessage(window, "VITA PERSA!\n\nVite rimaste: " + std::to_string(pac.getLives()) + "\n\nRiprova!", fontPath.string());
-                            // Ricarica il livello corrente SENZA resettare i pellet e le vite
-                            // Salva le vite attuali prima di ricaricare
-                            int currentLives = pac.getLives();
-                            loadLevel(currentLevel, false); // NON resettare i pellet
-                            pac.setLives(currentLives); // Ripristina le vite corrette
-                            ghostSoundPlaying = false; // Reset flag suono fantasmi dopo morte
-                            chompActive = false; // Ferma il chomp quando si perde una vita
-                            sfxChomp.setVolume(0.f); // Silenzia il chomp
-                            gameOver = true;
+                            sfxChomp.stop();
+                            sfxChomp.setVolume(0.f);
+                            sfxDeath.play();
                         }
                     }
                 }
             }
+            // --- BLOCCO GIOCO DURANTE ANIMAZIONE MORTE PAC-MAN ---
+            if (pac.isDying()) {
+                // Aggiorna solo Pac-Man per animazione morte
+                pac.update(dt, map, tileSize);
+                // Rendering
+                goto render_section;
+            }
+            // --- FINE BLOCCO ANIMAZIONE MORTE ---
+            // Dopo che l'animazione di morte è finita, decrementa vite o Game Over
+            if (pac.isDeathAnimationFinished()) {
+                pac.resetDeathAnimation();
+                pac.loseLife();
+                if (pac.getLives() <= 0) {
+                    // Ferma tutti i suoni quando si va in Game Over
+                    chompActive = false;
+                    sfxChomp.stop();
+                    sfxChomp.setVolume(0.f);
+                    // Game Over - passa alla schermata Game Over
+                    gameState = GameState::GAME_OVER;
+                } else {
+                    showMessage(window, "VITA PERSA!\n\nVite rimaste: " + std::to_string(pac.getLives()) + "\n\nRiprova!", fontPath.string());
+                    // Ricarica il livello corrente SENZA resettare i pellet e le vite
+                    int currentLives = pac.getLives();
+                    loadLevel(currentLevel, false); // NON resettare i pellet
+                    pac.setLives(currentLives); // Ripristina le vite corrette
+                    ghostSoundPlaying = false; // Reset flag suono fantasmi dopo morte
+                    // --- FIX: reset chomp dopo morte ---
+                    chompActive = false;
+                    chompSoundStarted = false;
+                    sfxChomp.stop();
+                    sfxChomp.setVolume(60.f); // Reset volume per il prossimo uso
+                    gameOver = true;
+                }
+            }
+            // --- RESET COMBO SOLO SE NESSUN FANTASMA È FRIGHTENED ---
+            bool anyFrightened = false;
+            for (const auto& ghost : ghosts) {
+                if (ghost->isFrightened() && !ghost->isEaten()) {
+                    anyFrightened = true;
+                    break;
+                }
+            }
+            if (!anyFrightened) ghostEatCombo = 0;
         }
-        
         // Gestione gameOver e gameStarted SOLO durante il gameplay
         if (gameState == GameState::PLAYING) {
             // Dopo il reset, attendi che il giocatore prema una freccia per ripartire
@@ -1229,6 +1366,7 @@ int main()
             }
         }
 
+        render_section:
         // Rendering
         window.clear();
         
@@ -1250,12 +1388,19 @@ int main()
                 pelletTransform.translate(mapOffset);
                 window.draw(p, pelletTransform);
             }
-            // Disegna i Super Pellet come cerchi grandi
+            // Super Pellet lampeggianti: visibile (peach) o invisibile (trasparente)
+            static sf::Clock blinkClock;
+            float blink = 1.0f;
+            sf::Color pelletColor = sf::Color(255, 209, 128); // sempre visibile di default
+            if (gameStarted) {
+                blink = std::abs(std::sin(blinkClock.getElapsedTime().asSeconds() * 12)); // lampeggio ~6 volte/sec
+                pelletColor = (blink > 0.5f) ? sf::Color(255, 209, 128) : sf::Color(255, 209, 128, 0); // peach o trasparente
+            }
             for (const auto& pos : superPelletPositions) {
-                sf::CircleShape superPellet(12.f); // raggio 12px (triplo del pellet normale)
-                superPellet.setOrigin({12.f, 12.f});
+                sf::CircleShape superPellet(9.f); // raggio 9px
+                superPellet.setOrigin(sf::Vector2f(9.f, 9.f));
                 superPellet.setPosition(pos + mapOffset);
-                superPellet.setFillColor(sf::Color(255, 192, 203)); // rosa chiaro
+                superPellet.setFillColor(pelletColor);
                 window.draw(superPellet);
             }
             for (auto& g : ghosts) {

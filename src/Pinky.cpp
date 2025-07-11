@@ -1,10 +1,25 @@
 #include "Pinky.hpp"
+#include "Ghost.hpp"
 #include <cmath>
 #include <algorithm>
 #include <iostream>
 
 // Pinky: il fantasma rosa, mira 4 caselle avanti a Pac-Man
-Pinky::Pinky(const sf::Vector2f& pos) : Ghost(pos, sf::Color::Magenta, 12.0f, Type::Pinky) {}
+Pinky::Pinky(const sf::Vector2f& pos) : Ghost(pos, sf::Color::Magenta, 12.0f, Type::Pinky) {
+    m_texture = std::make_unique<sf::Texture>();
+    if (m_texture->loadFromFile("assets/pacman.png")) {
+        m_sprite = std::make_unique<sf::Sprite>(*m_texture);
+        m_sprite->setTextureRect(PINKY_FRAMES[2][0]); // frame iniziale: destra, anim 0
+        m_sprite->setOrigin(sf::Vector2f{8.f, 8.f});
+        float scale = 12.f / 8.f;
+        m_sprite->setScale(sf::Vector2f{scale, scale});
+        m_hasTexture = true;
+    } else {
+        m_hasTexture = false;
+    }
+    m_animTime = 0.f;
+    m_animFrame = 0;
+}
 
 // Target = 4 caselle avanti nella direzione di Pac-Man
 sf::Vector2f Pinky::calculateTarget(const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, 
@@ -36,19 +51,75 @@ sf::Vector2f Pinky::calculateTarget(const sf::Vector2f& pacmanPos, const sf::Vec
 
 void Pinky::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
                   const sf::Vector2f& pacmanPos, const sf::Vector2f& pacmanDirection, Mode mode, bool gameStarted, bool released) {
-    if (!m_released) {
-        m_drawPos = m_shape.getPosition();
-        return;
-    }
-    static float debugTimer = 0.f;
-    m_mode = mode;
-    sf::Vector2f pos = m_shape.getPosition();
-    debugTimer += dt;
-    std::string modeStr = (m_mode == Mode::Chase) ? "Chase" : (m_mode == Mode::Scatter) ? "Scatter" : "Other";
-    sf::Vector2f target = calculateTarget(pacmanPos, pacmanDirection, map, tileSize);
-    if (debugTimer >= 1.0f) {
-        std::cout << "[PINKY] Pos: (" << pos.x << "," << pos.y << ") Dir: (" << m_direction.x << "," << m_direction.y << ") Pacman: (" << pacmanPos.x << "," << pacmanPos.y << ") Target: (" << target.x << "," << target.y << ") Mode: " << modeStr << std::endl;
-        debugTimer = 0.f;
+    if (m_hasTexture && m_sprite) {
+        m_sprite->setPosition(m_shape.getPosition());
+        m_animTime += dt;
+        if (m_direction != sf::Vector2f{0,0}) {
+            if (m_animTime >= GHOST_ANIMATION_INTERVAL) {
+                m_animFrame = 1 - m_animFrame;
+                m_animTime = 0.f;
+            }
+        } else {
+            m_animFrame = 0;
+        }
+        int dir = 2;
+        if (m_direction.x < 0) dir = 0;
+        else if (m_direction.x > 0) dir = 2;
+        else if (m_direction.y < 0) dir = 1;
+        else if (m_direction.y > 0) dir = 3;
+        if (m_isFrightened) {
+            // Negli ultimi 2 secondi alterna tra blu e bianco ogni 0.125s (come Inky)
+            if (m_frightenedDuration - m_frightenedTimer < 2.f) {
+                bool white = (int((m_frightenedTimer * 8)) % 2) == 1;
+                if (white) {
+                    m_sprite->setTextureRect(FRIGHTENED_WHITE_FRAMES[m_animFrame % 2]);
+                } else {
+                    m_sprite->setTextureRect(FRIGHTENED_FRAMES[m_animFrame % 2]);
+                }
+            } else {
+                m_sprite->setTextureRect(FRIGHTENED_FRAMES[m_animFrame % 2]);
+            }
+        } else {
+            m_sprite->setTextureRect(PINKY_FRAMES[dir][m_animFrame]);
+        }
     }
     Ghost::update(dt, map, tileSize, pacmanPos, pacmanDirection, mode, gameStarted);
+}
+
+void Pinky::draw(sf::RenderTarget& target, sf::RenderStates states) const {
+    states.transform *= getTransform();
+    if (m_hasTexture && m_sprite) {
+        m_sprite->setPosition(m_drawPos);
+        if (m_eaten || m_isReturningToHouse) {
+            int dir = 2;
+            if (m_direction.x < 0) dir = 0;
+            else if (m_direction.x > 0) dir = 2;
+            else if (m_direction.y < 0) dir = 1;
+            else if (m_direction.y > 0) dir = 3;
+            m_sprite->setTextureRect(EYES_FRAMES[dir]);
+        } else if (m_isFrightened) {
+            if (m_frightenedDuration - m_frightenedTimer < 2.f) {
+                bool white = (int((m_frightenedTimer * 8)) % 2) == 1;
+                if (white) {
+                    m_sprite->setTextureRect(FRIGHTENED_WHITE_FRAMES[m_animFrame % 2]);
+                } else {
+                    m_sprite->setTextureRect(FRIGHTENED_FRAMES[m_animFrame % 2]);
+                }
+            } else {
+                m_sprite->setTextureRect(FRIGHTENED_FRAMES[m_animFrame % 2]);
+            }
+        } else {
+            int dir = 2;
+            if (m_direction.x < 0) dir = 0;
+            else if (m_direction.x > 0) dir = 2;
+            else if (m_direction.y < 0) dir = 1;
+            else if (m_direction.y > 0) dir = 3;
+            m_sprite->setTextureRect(PINKY_FRAMES[dir][m_animFrame]);
+        }
+        target.draw(*m_sprite, states);
+    } else {
+        sf::CircleShape shape = m_shape;
+        shape.setPosition(m_drawPos);
+        target.draw(shape, states);
+    }
 }

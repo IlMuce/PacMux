@@ -14,7 +14,8 @@
 
 Ghost::Ghost(const sf::Vector2f& pos, sf::Color color, float radius, Type type)
     : m_shape(radius), m_direction(0, -1), m_speed(90.f), m_type(type), m_mode(Mode::Chase), 
-      m_drawPos(pos), m_hasLeftGhostHouse(false), m_eaten(false), m_isReturningToHouse(false)
+      m_drawPos(pos), m_hasLeftGhostHouse(false), m_eaten(false), m_isReturningToHouse(false),
+      m_texture(nullptr), m_sprite(nullptr), m_hasTexture(false), m_animTime(0.f), m_animFrame(0)
 {
     m_shape.setFillColor(color);
     m_shape.setOrigin({radius, radius});
@@ -28,6 +29,17 @@ Ghost::Ghost(const sf::Vector2f& pos, sf::Color color, float radius, Type type)
         case Type::Clyde:  m_releaseDelay = 6.f; break;
     }
     m_canLeaveHouse = false;
+    // Carica la texture e sprite come fallback generico (puoi personalizzare nei figli)
+    m_texture = std::make_unique<sf::Texture>();
+    if (m_texture->loadFromFile("assets/pacman.png")) {
+        m_sprite = std::make_unique<sf::Sprite>(*m_texture);
+        m_sprite->setOrigin(sf::Vector2f{8.f, 8.f});
+        float scale = radius / 8.f;
+        m_sprite->setScale(sf::Vector2f{scale, scale});
+        m_hasTexture = true;
+    } else {
+        m_hasTexture = false;
+    }
 }
 
 void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize, 
@@ -229,11 +241,21 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
     // --- Frightened mode logic ---
     if (m_isFrightened) {
         m_frightenedTimer += dt;
+        // Aggiorna animazione frightened qui (NON in draw)
+        m_animTime += dt;
+        if (m_animTime >= GHOST_ANIMATION_INTERVAL) {
+            m_animFrame = 1 - m_animFrame;
+            m_animTime = 0.f;
+        }
         if (m_frightenedTimer >= m_frightenedDuration) {
             m_isFrightened = false;
             m_mode = Mode::Chase;
             m_speed = 90.f; // restore normal speed
         }
+    } else {
+        // Reset animazione frightened se non più in frightened
+        m_animFrame = 0;
+        m_animTime = 0.f;
     }
 
     // If frightened, move randomly at intersections
@@ -299,21 +321,83 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
     }
 }
 
+// --- ANIMAZIONE SPRITE FANTASMI ---
+// Ogni fantasma: 4 direzioni (sinistra, su, destra, giù), 2 frame per direzione
+// Sostituisci i valori con le coordinate reali della tua sprite sheet
+// Esempio: BLINKY_FRAMES[LEFT][0] = frame sinistra, animazione 1
+//          BLINKY_FRAMES[LEFT][1] = frame sinistra, animazione 2
+static const sf::IntRect BLINKY_FRAMES[4][2] = {
+    { sf::IntRect(sf::Vector2i{100,566}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{117,566}, sf::Vector2i{16,16}) },   // SINISTRA
+    { sf::IntRect(sf::Vector2i{134,566}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{151,566}, sf::Vector2i{16,16}) }, // SU
+    { sf::IntRect(sf::Vector2i{168,566}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{185,566}, sf::Vector2i{16,16}) }, // DESTRA
+    { sf::IntRect(sf::Vector2i{202,566}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{219,566}, sf::Vector2i{16,16}) }  // GIÙ
+};
+static const sf::IntRect PINKY_FRAMES[4][2] = {
+    { sf::IntRect(sf::Vector2i{100,583}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{117,583}, sf::Vector2i{16,16}) },
+    { sf::IntRect(sf::Vector2i{134,583}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{151,583}, sf::Vector2i{16,16}) },
+    { sf::IntRect(sf::Vector2i{168,583}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{185,583}, sf::Vector2i{16,16}) },
+    { sf::IntRect(sf::Vector2i{202,583}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{219,583}, sf::Vector2i{16,16}) }
+};
+static const sf::IntRect INKY_FRAMES[4][2] = {
+    { sf::IntRect(sf::Vector2i{100,600}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{117,600}, sf::Vector2i{16,16}) },
+    { sf::IntRect(sf::Vector2i{134,600}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{151,600}, sf::Vector2i{16,16}) },
+    { sf::IntRect(sf::Vector2i{168,600}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{185,600}, sf::Vector2i{16,16}) },
+    { sf::IntRect(sf::Vector2i{202,600}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{219,600}, sf::Vector2i{16,16}) }
+};
+static const sf::IntRect CLYDE_FRAMES[4][2] = {
+    { sf::IntRect(sf::Vector2i{100,617}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{117,617}, sf::Vector2i{16,16}) },
+    { sf::IntRect(sf::Vector2i{134,617}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{151,617}, sf::Vector2i{16,16}) },
+    { sf::IntRect(sf::Vector2i{168,617}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{185,617}, sf::Vector2i{16,16}) },
+    { sf::IntRect(sf::Vector2i{202,617}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{219,617}, sf::Vector2i{16,16}) }
+};
+static const sf::IntRect FRIGHTENED_FRAMES[2] = {
+    sf::IntRect(sf::Vector2i{389,566}, sf::Vector2i{16,16}), // blu
+    sf::IntRect(sf::Vector2i{406,566}, sf::Vector2i{16,16})  
+};
+// Nuovo: array per le texture bianche degli ultimi 2 secondi frightened
+static const sf::IntRect FRIGHTENED_WHITE_FRAMES[2] = {
+    sf::IntRect(sf::Vector2i{390,746}, sf::Vector2i{16,16}), // bianco 1 (nuova texture, da sprite sheet)
+    sf::IntRect(sf::Vector2i{406,746}, sf::Vector2i{16,16})  // bianco 2 (nuova texture, da sprite sheet)
+};
+static const sf::IntRect EYES_FRAMES[4] = {
+    sf::IntRect(sf::Vector2i{389,583}, sf::Vector2i{16,16}), // sinistra
+    sf::IntRect(sf::Vector2i{406,583}, sf::Vector2i{16,16}), // su
+    sf::IntRect(sf::Vector2i{423,583}, sf::Vector2i{16,16}), // destra
+    sf::IntRect(sf::Vector2i{440,583}, sf::Vector2i{16,16})  // giù
+};
+static constexpr float GHOST_ANIMATION_INTERVAL = 0.12f; // secondi tra un frame e l'altro
+
 void Ghost::draw(sf::RenderTarget& target, sf::RenderStates states) const {
     states.transform *= getTransform();
+    // --- ANIMAZIONE SPRITE: usa sprite membro se presente, fallback cerchio ---
+    if (m_sprite && m_hasTexture) {
+        m_sprite->setPosition(m_drawPos);
+        if (m_eaten || m_isReturningToHouse) {
+            int dirIdx = 0;
+            if (m_direction.x < 0) dirIdx = 0; // sinistra
+            else if (m_direction.y < 0) dirIdx = 1; // su
+            else if (m_direction.x > 0) dirIdx = 2; // destra
+            else if (m_direction.y > 0) dirIdx = 3; // giù
+            m_sprite->setTextureRect(EYES_FRAMES[dirIdx]);
+        } else if (m_isFrightened) {
+            // RIMOSSO lampeggiamento: la logica frightened/blink è ora solo nei figli
+            m_sprite->setTextureRect(FRIGHTENED_FRAMES[m_animFrame % 2]);
+        } else {
+            // Fantasma normale: fallback, puoi personalizzare per ogni tipo
+            int dirIdx = 2;
+            if (m_direction.x < 0) dirIdx = 0;
+            else if (m_direction.x > 0) dirIdx = 2;
+            else if (m_direction.y < 0) dirIdx = 1;
+            else if (m_direction.y > 0) dirIdx = 3;
+            // Usa BLINKY_FRAMES come default, override nei figli
+            m_sprite->setTextureRect(BLINKY_FRAMES[dirIdx][0]);
+        }
+        target.draw(*m_sprite, states);
+        return;
+    }
+    // Fallback: disegna il cerchio se non hai sprite
     sf::CircleShape shape = m_shape;
     shape.setPosition(m_drawPos);
-    if (m_isFrightened) {
-        // Lampeggia tra blu e bianco negli ultimi 2 secondi
-        if (m_frightenedDuration - m_frightenedTimer < 2.f) {
-            int blink = int(m_frightenedTimer * 8) % 2;
-            shape.setFillColor(blink ? sf::Color(255,255,255) : sf::Color(0,0,255));
-        } else {
-            shape.setFillColor(sf::Color(0, 0, 255));
-        }
-    } else if (m_eaten || m_isReturningToHouse) {
-        shape.setFillColor(sf::Color(200,200,200)); // Gray/white for eyes
-    }
     target.draw(shape, states);
 }
 

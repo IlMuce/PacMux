@@ -1,5 +1,6 @@
 #pragma once
 #include <SFML/Graphics.hpp>
+#include <memory>
 #include "TileMap.hpp"
 
 class Player : public sf::Drawable, public sf::Transformable {
@@ -11,11 +12,15 @@ public:
 
     sf::Vector2f getPosition() const { return m_shape.getPosition(); }
     sf::Vector2f getDirection() const { return m_direction; }
+    void setDirection(const sf::Vector2f& dir);
 
     // Imposta la posizione di Pac-Man
     void setPosition(const sf::Vector2f& position) { 
         m_shape.setPosition(position); 
-        m_logicalPosition = position; 
+        m_logicalPosition = position;
+        if (m_hasTexture && m_sprite) {
+            m_sprite->setPosition(position);
+        }
     }
 
     // Restituisce la posizione logica di Pac-Man
@@ -45,4 +50,28 @@ private:
     sf::Vector2u      m_tileSize;
     sf::Vector2f      m_logicalPosition; // Posizione logica di Pac-Man
     int               m_lives;           // Numero di vite del giocatore
+    
+    // Texture e sprite per Pac-Man
+    std::unique_ptr<sf::Texture> m_texture;
+    std::unique_ptr<sf::Sprite>  m_sprite;
+    bool                         m_hasTexture;
+    // --- Animazione Pac-Man ---
+    float m_animTime = 0.f;
+    int m_animFrame = 0;
+
+    // --- Animazione morte Pac-Man ---
+    bool m_isDying = false;                // Pac-Man sta morendo
+    float m_deathAnimTime = 0.f;           // Timer animazione morte
+    int m_deathFrame = 0;                  // Frame corrente animazione morte
+    bool m_deathAnimFinished = false;      // Animazione morte terminata
+
+public:
+    // Avvia l'animazione di morte
+    void startDeathAnimation();
+    // Controlla se l'animazione di morte è finita
+    bool isDeathAnimationFinished() const;
+    // Resetta l'animazione di morte
+    void resetDeathAnimation() { m_isDying = false; m_deathAnimTime = 0.f; m_deathFrame = 0; m_deathAnimFinished = false; }
+    // Ritorna true se Pac-Man sta morendo
+    bool isDying() const { return m_isDying; }
 };

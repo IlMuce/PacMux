@@ -2,6 +2,7 @@
 
 #include <SFML/Graphics.hpp>
 #include "TileMap.hpp"
+#include <memory>
 
 class Ghost : public sf::Drawable, public sf::Transformable {
 public:
@@ -105,4 +106,23 @@ protected:
     bool m_canLeaveHouse = false;
 
     bool m_released = false;
+
+    // Sprite e texture per animazione (come negli altri fantasmi)
+    std::unique_ptr<sf::Texture> m_texture;
+    std::unique_ptr<sf::Sprite> m_sprite;
+    bool m_hasTexture = false;
+    float m_animTime = 0.f;
+    int m_animFrame = 0;
 };
+
+// --- ANIMAZIONE SPRITE FANTASMI ---
+// Array di frame per Blinky (e altri se vuoi)
+extern const sf::IntRect BLINKY_FRAMES[4][2];
+extern const sf::IntRect INKY_FRAMES[4][2];
+extern const sf::IntRect CLYDE_FRAMES[4][2];
+extern const sf::IntRect PINKY_FRAMES[4][2];
+extern const sf::IntRect FRIGHTENED_FRAMES[2];
+extern const sf::IntRect EYES_FRAMES[4];
+extern const sf::IntRect FRIGHTENED_WHITE_FRAMES[2];
+extern const float GHOST_ANIMATION_INTERVAL;
+

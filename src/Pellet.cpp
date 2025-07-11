@@ -4,7 +4,7 @@
 Pellet::Pellet(const sf::Vector2f& pos, float radius)
     : m_shape(radius)
 {
-    m_shape.setFillColor(sf::Color::White);
+    m_shape.setFillColor(sf::Color(255, 209, 128)); // Peach
     m_shape.setOrigin(sf::Vector2f(radius, radius));
     m_shape.setPosition(pos);
 }

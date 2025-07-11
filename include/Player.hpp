@@ -57,4 +57,20 @@ private:
     // --- Animazione Pac-Man ---
     float m_animTime = 0.f;
     int m_animFrame = 0;
+
+    // --- Animazione morte Pac-Man ---
+    bool m_isDying = false;                // Pac-Man sta morendo
+    float m_deathAnimTime = 0.f;           // Timer animazione morte
+    int m_deathFrame = 0;                  // Frame corrente animazione morte
+    bool m_deathAnimFinished = false;      // Animazione morte terminata
+
+public:
+    // Avvia l'animazione di morte
+    void startDeathAnimation();
+    // Controlla se l'animazione di morte è finita
+    bool isDeathAnimationFinished() const;
+    // Resetta l'animazione di morte
+    void resetDeathAnimation() { m_isDying = false; m_deathAnimTime = 0.f; m_deathFrame = 0; m_deathAnimFinished = false; }
+    // Ritorna true se Pac-Man sta morendo
+    bool isDying() const { return m_isDying; }
 };

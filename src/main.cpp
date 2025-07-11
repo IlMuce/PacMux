@@ -1204,38 +1204,53 @@ int main()
                         }
                         continue;
                     } else if (!ghost->isEaten() && !ghost->isReturningToHouse()) {
-                        // Diminuisci le vite del giocatore
-                        pac.loseLife();
-                        sfxGhostNormal.stop(); // Ferma il suono fantasmi quando Pac-Man muore
-                        sfxGhostReturn.stop(); // Ferma anche il suono di ritorno
-                        ghostSoundPlaying = false; // Reset flag suono fantasmi
-                        // SILENZIA IMMEDIATAMENTE IL CHOMP
-                        chompActive = false;
-                        sfxChomp.stop();
-                        sfxChomp.setVolume(0.f);
-                        sfxDeath.play();
-                        if (pac.getLives() <= 0) {
-                            // Ferma tutti i suoni quando si va in Game Over
+                        // Avvia animazione morte Pac-Man
+                        if (!pac.isDying()) {
+                            pac.startDeathAnimation();
+                            sfxGhostNormal.stop(); // Ferma il suono fantasmi quando Pac-Man muore
+                            sfxGhostReturn.stop(); // Ferma anche il suono di ritorno
+                            ghostSoundPlaying = false; // Reset flag suono fantasmi
+                            // SILENZIA IMMEDIATAMENTE IL CHOMP
                             chompActive = false;
                             sfxChomp.stop();
                             sfxChomp.setVolume(0.f);
-                            // Game Over - passa alla schermata Game Over
-                            gameState = GameState::GAME_OVER;
-                        } else {
-                            showMessage(window, "VITA PERSA!\n\nVite rimaste: " + std::to_string(pac.getLives()) + "\n\nRiprova!", fontPath.string());
-                            // Ricarica il livello corrente SENZA resettare i pellet e le vite
-                            int currentLives = pac.getLives();
-                            loadLevel(currentLevel, false); // NON resettare i pellet
-                            pac.setLives(currentLives); // Ripristina le vite corrette
-                            ghostSoundPlaying = false; // Reset flag suono fantasmi dopo morte
-                            // --- FIX: reset chomp dopo morte ---
-                            chompActive = false;
-                            chompSoundStarted = false;
-                            sfxChomp.stop();
-                            sfxChomp.setVolume(60.f); // Reset volume per il prossimo uso
-                            gameOver = true;
+                            sfxDeath.play();
                         }
                     }
+                }
+            }
+            // --- BLOCCO GIOCO DURANTE ANIMAZIONE MORTE PAC-MAN ---
+            if (pac.isDying()) {
+                // Aggiorna solo Pac-Man per animazione morte
+                pac.update(dt, map, tileSize);
+                // Rendering
+                goto render_section;
+            }
+            // --- FINE BLOCCO ANIMAZIONE MORTE ---
+            // Dopo che l'animazione di morte è finita, decrementa vite o Game Over
+            if (pac.isDeathAnimationFinished()) {
+                pac.resetDeathAnimation();
+                pac.loseLife();
+                if (pac.getLives() <= 0) {
+                    // Ferma tutti i suoni quando si va in Game Over
+                    chompActive = false;
+                    sfxChomp.stop();
+                    sfxChomp.setVolume(0.f);
+                    // Game Over - passa alla schermata Game Over
+                    gameState = GameState::GAME_OVER;
+                } else {
+                    showMessage(window, "VITA PERSA!\n\nVite rimaste: " + std::to_string(pac.getLives()) + "\n\nRiprova!", fontPath.string());
+                    // Ricarica il livello corrente SENZA resettare i pellet e le vite
+                    int currentLives = pac.getLives();
+                    loadLevel(currentLevel, false); // NON resettare i pellet
+                    pac.setLives(currentLives); // Ripristina le vite corrette
+                    ghostSoundPlaying = false; // Reset flag suono fantasmi dopo morte
+                    // --- FIX: reset chomp dopo morte ---
+                    chompActive = false;
+                    chompSoundStarted = false;
+                    sfxChomp.stop();
+                    sfxChomp.setVolume(60.f); // Reset volume per il prossimo uso
+                    gameOver = true;
                 }
             }
         }

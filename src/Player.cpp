@@ -15,6 +15,22 @@ static const sf::IntRect PACMAN_FRAMES[4][3] = {
 };
 static constexpr float ANIMATION_INTERVAL = 0.08f; // secondi tra un frame e l'altro
 
+// --- ANIMAZIONE MORTE PAC-MAN ---
+static const sf::IntRect PACMAN_DEATH_FRAMES[11] = {
+    sf::IntRect(sf::Vector2i{151,498}, sf::Vector2i{16,16}),
+    sf::IntRect(sf::Vector2i{168,498}, sf::Vector2i{16,16}),
+    sf::IntRect(sf::Vector2i{185,498}, sf::Vector2i{16,16}),
+    sf::IntRect(sf::Vector2i{202,498}, sf::Vector2i{16,16}),
+    sf::IntRect(sf::Vector2i{219,498}, sf::Vector2i{16,16}),
+    sf::IntRect(sf::Vector2i{236,498}, sf::Vector2i{16,16}),
+    sf::IntRect(sf::Vector2i{253,498}, sf::Vector2i{16,16}),
+    sf::IntRect(sf::Vector2i{270,498}, sf::Vector2i{16,16}),
+    sf::IntRect(sf::Vector2i{287,498}, sf::Vector2i{16,16}),
+    sf::IntRect(sf::Vector2i{304,498}, sf::Vector2i{16,16}),
+    sf::IntRect(sf::Vector2i{321,498}, sf::Vector2i{16,16})
+};
+static constexpr float DEATH_ANIMATION_INTERVAL = 0.09f; // secondi tra i frame di morte
+
 // Enum direzione logica Pac-Man
 enum PacmanDir { LEFT=0, UP=1, RIGHT=2, DOWN=3, NONE=4 };
 
@@ -29,6 +45,11 @@ Player::Player(float speed, const sf::Vector2f& startPos, const sf::Vector2u& ti
     , m_hasTexture(false)
     , m_animTime(0.f)
     , m_animFrame(0)
+    // --- VARIABILI ANIMAZIONE MORTE ---
+    , m_isDying(false)
+    , m_deathAnimTime(0.f)
+    , m_deathFrame(0)
+    , m_deathAnimFinished(false)
 {
     m_shape.setFillColor(sf::Color::Yellow);
     m_shape.setOrigin(sf::Vector2f(m_shape.getRadius(), m_shape.getRadius()));
@@ -71,8 +92,46 @@ static PacmanDir getPacmanDir(const sf::Vector2f& dir) {
     return NONE;
 }
 
+// Avvia l'animazione di morte
+void Player::startDeathAnimation() {
+    m_isDying = true;
+    m_deathAnimTime = 0.f;
+    m_deathFrame = 0;
+    m_deathAnimFinished = false;
+    m_direction = {0.f, 0.f}; // Blocca movimento
+}
+
+// Controlla se l'animazione di morte è finita
+bool Player::isDeathAnimationFinished() const {
+    return m_deathAnimFinished;
+}
+
 // Aggiorna la posizione e la direzione di Pac-Man in base all'input e alle collisioni
 void Player::update(float dt, const TileMap& map, const sf::Vector2u& tileSize) {
+    if (m_isDying) {
+        // Solo animazione morte
+        m_deathAnimTime += dt;
+        if (m_deathAnimTime >= DEATH_ANIMATION_INTERVAL) {
+            m_deathAnimTime = 0.f;
+            m_deathFrame++;
+            if (m_deathFrame >= 11) {
+                m_deathFrame = 10;
+                m_isDying = false;
+                m_deathAnimFinished = true;
+            }
+        }
+        if (m_hasTexture && m_sprite) {
+            m_sprite->setTextureRect(PACMAN_DEATH_FRAMES[m_deathFrame]);
+            // Centra lo sprite (frame 16x16)
+            m_sprite->setOrigin(sf::Vector2f{8.f, 8.f});
+            m_sprite->setScale(sf::Vector2f(
+                static_cast<float>(tileSize.x) / 16.f * 0.75f,
+                static_cast<float>(tileSize.y) / 16.f * 0.75f
+            ));
+        }
+        return;
+    }
+
     using Key = sf::Keyboard::Key;
 
     // Leggi input direzionale

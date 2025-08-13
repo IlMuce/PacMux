@@ -14,6 +14,7 @@
 #include "Pellet.hpp"
 #include "Score.hpp"
 #include "HighScore.hpp"
+#include "GlobalLeaderboard.hpp"
 #include "Blinky.hpp"
 #include "Pinky.hpp"
 #include "Inky.hpp"
@@ -81,6 +82,145 @@ void showMessage(sf::RenderWindow& window, const std::string& message, const std
             exit(0);
         }
     }
+}
+
+// Funzione per chiedere se l'utente vuole caricare il punteggio online
+bool askForGlobalUpload(sf::RenderWindow& window, const std::string& fontPath, unsigned int finalScore) {
+    sf::Font font(fontPath);
+    
+    while (window.isOpen()) {
+        std::optional<sf::Event> event = window.pollEvent();
+        
+        window.clear(sf::Color::Black);
+        
+        sf::Text titleText(font, "CARICA PUNTEGGIO ONLINE?", 32);
+        titleText.setFillColor(sf::Color(255, 215, 0)); // Oro
+        titleText.setOutlineColor(sf::Color::Red);  
+        titleText.setOutlineThickness(2);
+        sf::FloatRect titleBounds = titleText.getLocalBounds();
+        titleText.setPosition(sf::Vector2f((window.getSize().x - titleBounds.size.x) / 2.0f, window.getSize().y * 0.2f));
+        window.draw(titleText);
+        
+        sf::Text scoreText(font, "Punteggio: " + std::to_string(finalScore), 24);
+        scoreText.setFillColor(sf::Color::White);
+        sf::FloatRect scoreBounds = scoreText.getLocalBounds();
+        scoreText.setPosition(sf::Vector2f((window.getSize().x - scoreBounds.size.x) / 2.0f, window.getSize().y * 0.35f));
+        window.draw(scoreText);
+        
+        sf::Text yesText(font, "Premi Y per SI", 20);
+        yesText.setFillColor(sf::Color::Green);
+        sf::FloatRect yesBounds = yesText.getLocalBounds();
+        yesText.setPosition(sf::Vector2f((window.getSize().x - yesBounds.size.x) / 2.0f, window.getSize().y * 0.55f));
+        window.draw(yesText);
+        
+        sf::Text noText(font, "Premi N per NO", 20);
+        noText.setFillColor(sf::Color::Red);
+        sf::FloatRect noBounds = noText.getLocalBounds();
+        noText.setPosition(sf::Vector2f((window.getSize().x - noBounds.size.x) / 2.0f, window.getSize().y * 0.65f));
+        window.draw(noText);
+        
+        window.display();
+        
+        if (event && event->is<sf::Event::KeyPressed>()) {
+            if (auto keyEvent = event->getIf<sf::Event::KeyPressed>()) {
+                if (keyEvent->code == sf::Keyboard::Key::Y) {
+                    return true;
+                } else if (keyEvent->code == sf::Keyboard::Key::N) {
+                    return false;
+                }
+            }
+        }
+        
+        if (event && event->is<sf::Event::Closed>()) {
+            window.close();
+            exit(0);
+        }
+    }
+    return false; // Fallback
+}
+
+// Funzione per inserire il nome per upload globale
+std::string inputPlayerNameForGlobal(sf::RenderWindow& window, const std::string& fontPath, unsigned int finalScore) {
+    sf::Font font(fontPath);
+    std::string playerName;
+    
+    while (window.isOpen()) {
+        std::optional<sf::Event> event = window.pollEvent();
+        
+        window.clear(sf::Color::Black);
+        
+        sf::Text titleText(font, "INSERISCI IL TUO NOME", 32);
+        titleText.setFillColor(sf::Color(255, 215, 0)); // Oro
+        titleText.setOutlineColor(sf::Color::Red);
+        titleText.setOutlineThickness(2);
+        sf::FloatRect titleBounds = titleText.getLocalBounds();
+        titleText.setPosition(sf::Vector2f((window.getSize().x - titleBounds.size.x) / 2.0f, window.getSize().y * 0.15f));
+        window.draw(titleText);
+        
+        sf::Text scoreText(font, "Punteggio: " + std::to_string(finalScore), 24);
+        scoreText.setFillColor(sf::Color::White);
+        sf::FloatRect scoreBounds = scoreText.getLocalBounds();
+        scoreText.setPosition(sf::Vector2f((window.getSize().x - scoreBounds.size.x) / 2.0f, window.getSize().y * 0.3f));
+        window.draw(scoreText);
+        
+        sf::Text nameLabel(font, "Nome:", 20);
+        nameLabel.setFillColor(sf::Color::Cyan);
+        nameLabel.setPosition(sf::Vector2f(window.getSize().x * 0.2f, window.getSize().y * 0.5f));
+        window.draw(nameLabel);
+        
+        std::string displayName = playerName;
+        if (displayName.empty()) {
+            displayName = "_"; // Cursore
+        } else {
+            displayName += "_"; // Cursore
+        }
+        
+        sf::Text nameText(font, displayName, 20);
+        nameText.setFillColor(sf::Color::White);
+        nameText.setPosition(sf::Vector2f(window.getSize().x * 0.35f, window.getSize().y * 0.5f));
+        window.draw(nameText);
+        
+        sf::Text instructionText(font, "Premi INVIO per confermare", 16);
+        instructionText.setFillColor(sf::Color(128, 128, 128));
+        sf::FloatRect instrBounds = instructionText.getLocalBounds();
+        instructionText.setPosition(sf::Vector2f((window.getSize().x - instrBounds.size.x) / 2.0f, window.getSize().y * 0.75f));
+        window.draw(instructionText);
+        
+        window.display();
+        
+        if (event && event->is<sf::Event::KeyPressed>()) {
+            if (auto keyEvent = event->getIf<sf::Event::KeyPressed>()) {
+                if (keyEvent->code == sf::Keyboard::Key::Enter) {
+                    if (playerName.empty()) {
+                        playerName = "PLAYER"; // Nome predefinito se vuoto
+                    }
+                    return playerName;
+                } else if (keyEvent->code == sf::Keyboard::Key::Backspace) {
+                    if (!playerName.empty()) {
+                        playerName.pop_back();
+                    }
+                }
+            }
+        }
+        
+        if (event && event->is<sf::Event::TextEntered>()) {
+            auto textEvent = event->getIf<sf::Event::TextEntered>();
+            char32_t unicode = textEvent->unicode;
+            
+            if (unicode >= 32 && unicode < 127 && unicode != 127 && playerName.length() < 10) { // ASCII stampabili escluso DEL
+                char character = static_cast<char>(unicode);
+                if (std::isalnum(character) || character == '_' || character == '-') {
+                    playerName += std::toupper(character); // Converti in maiuscolo
+                }
+            }
+        }
+        
+        if (event && event->is<sf::Event::Closed>()) {
+            window.close();
+            exit(0);
+        }
+    }
+    return playerName.empty() ? "PLAYER" : playerName;
 }
 
 // Funzione per inserire il nome del giocatore per un nuovo record
@@ -247,6 +387,7 @@ int main()
     // Carica il font e inizializza il punteggio
     std::unique_ptr<Score> score;
     std::unique_ptr<HighScore> highScore;
+    std::unique_ptr<GlobalLeaderboard> globalLeaderboard;
     
     // Determina il percorso del file highscore (nella stessa directory dell'eseguibile)
     fs::path highscorePath = exeDir / "highscores.json";
@@ -254,9 +395,13 @@ int main()
     try {
         score = std::make_unique<Score>(fontPath.string());
         highScore = std::make_unique<HighScore>(fontPath.string());
+        globalLeaderboard = std::make_unique<GlobalLeaderboard>(fontPath.string());
         
         // Carica i record esistenti dal percorso corretto
         highScore->loadFromFile(highscorePath.string());
+        
+        // Avvia download iniziale della leaderboard globale
+        globalLeaderboard->downloadLeaderboard();
         
     } catch (const std::exception& e) {
         MessageBoxA(NULL, e.what(), "Errore Pacman", MB_OK|MB_ICONERROR);
@@ -405,13 +550,13 @@ int main()
     bool modeJustChanged = false;
 
     // --- GESTIONE STATI DI GIOCO ---
-    enum class GameState { MENU, PLAYING, GAME_OVER, HIGHSCORE, PAUSED };
+    enum class GameState { MENU, PLAYING, GAME_OVER, HIGHSCORE, GLOBAL_LEADERBOARD, PAUSED };
     GameState gameState = GameState::MENU;
 
     // --- GESTIONE MENU PRINCIPALE ---
-    enum class MenuOption { PLAY = 0, HIGHSCORE = 1, EXIT = 2 };
+    enum class MenuOption { PLAY = 0, HIGHSCORE = 1, GLOBAL_LEADERBOARD = 2, EXIT = 3 };
     MenuOption selectedMenuOption = MenuOption::PLAY;
-    const int NUM_MENU_OPTIONS = 3;
+    const int NUM_MENU_OPTIONS = 4;
 
     // --- GESTIONE MENU PAUSA ---
     enum class PauseOption { RESUME = 0, BACK_TO_MENU = 1 };
@@ -527,11 +672,21 @@ int main()
             // Controlla se è stato raggiunto un nuovo record
             if (!recordChecked) {
                 unsigned int finalScore = score->getScore();
+                
+                // Prima gestisci record locale
                 if (highScore->isHighScore(finalScore)) {
-                    // Nuovo record! Chiedi il nome del giocatore
+                    // Nuovo record locale! Chiedi il nome del giocatore
                     std::string playerName = inputPlayerName(window, fontPath.string(), finalScore);
                     highScore->addScore(playerName, finalScore);
                 }
+                
+                // Poi chiedi per upload globale (indipendentemente dal record locale)
+                if (askForGlobalUpload(window, fontPath.string(), finalScore)) {
+                    // L'utente vuole caricare online
+                    std::string globalPlayerName = inputPlayerNameForGlobal(window, fontPath.string(), finalScore);
+                    globalLeaderboard->uploadScore(globalPlayerName, finalScore);
+                }
+                
                 recordChecked = true;
             }
             
@@ -654,8 +809,8 @@ int main()
             window.draw(title);
             
             // Opzioni del menu
-            std::vector<std::string> menuItems = {"GIOCA", "RECORD", "ESCI"};
-            std::vector<sf::Color> menuColors = {sf::Color::White, sf::Color::White, sf::Color::White};
+            std::vector<std::string> menuItems = {"GIOCA", "RECORD", "GLOBAL", "ESCI"};
+            std::vector<sf::Color> menuColors = {sf::Color::White, sf::Color::White, sf::Color::White, sf::Color::White};
             
             // Evidenzia l'opzione selezionata
             menuColors[static_cast<int>(selectedMenuOption)] = sf::Color::Yellow;
@@ -756,6 +911,10 @@ int main()
                                 // Vai alla schermata dei record
                                 gameState = GameState::HIGHSCORE;
                                 break;
+                            case MenuOption::GLOBAL_LEADERBOARD:
+                                // Vai alla schermata della leaderboard globale
+                                gameState = GameState::GLOBAL_LEADERBOARD;
+                                break;
                             case MenuOption::EXIT:
                                 // Esci dal gioco
                                 window.close();
@@ -796,6 +955,50 @@ int main()
                         sfxChomp.stop(); // Ferma completamente il chomp quando si torna al menu
                         chompSoundStarted = false; // Reset del flag
                         gameState = GameState::MENU;
+                        continue;
+                    }
+                }
+            }
+            if (event && event->is<sf::Event::Closed>()) {
+                window.close();
+                break;
+            }
+            continue;
+        }
+
+        if (gameState == GameState::GLOBAL_LEADERBOARD) {
+            // Aggiorna GlobalLeaderboard
+            globalLeaderboard->update();
+            
+            // Mostra schermata della leaderboard globale
+            window.clear(sf::Color::Black);
+            
+            // Disegna la leaderboard globale
+            globalLeaderboard->draw(window, window.getSize());
+            
+            window.display();
+            
+            // Gestione input leaderboard globale
+            auto event = window.waitEvent();
+            if (event && event->is<sf::Event::KeyPressed>()) {
+                if (auto keyEvent = event->getIf<sf::Event::KeyPressed>()) {
+                    if (keyEvent->code == sf::Keyboard::Key::Escape) {
+                        sfxEatGhost.play(); // Suono di ritorno al menu
+                        // Ferma tutti i suoni quando si torna al menu
+                        sfxGhostNormal.stop();
+                        sfxGhostReturn.stop();
+                        ghostSoundPlaying = false;
+                        canPlayGhostSounds = false;
+                        chompActive = false;
+                        sfxChomp.stop();
+                        chompSoundStarted = false;
+                        gameState = GameState::MENU;
+                        continue;
+                    }
+                    else if (keyEvent->code == sf::Keyboard::Key::R) {
+                        // Force refresh della leaderboard
+                        sfxEatGhost.play(); // Suono di conferma  
+                        globalLeaderboard->forceRefresh();
                         continue;
                     }
                 }

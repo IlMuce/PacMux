@@ -13,6 +13,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Trova SFML 3, richiedendo i componenti Graphics, Window, System e Audio
 find_package(SFML 3 REQUIRED COMPONENTS Graphics Window System Audio)
 
+# Aggiungi CPR per HTTP requests (usato da GlobalLeaderboard)
+include(FetchContent)
+FetchContent_Declare(cpr GIT_REPOSITORY https://github.com/libcpr/cpr.git
+                         GIT_TAG 3b15fa82ea74739b574d705fea44959b58142eb8) # Versione 1.10.x
+FetchContent_MakeAvailable(cpr)
+
 add_executable(${PROJECT_NAME}
     src/main.cpp
     src/TileMap.cpp
@@ -20,6 +26,7 @@ add_executable(${PROJECT_NAME}
     src/Pellet.cpp
     src/Score.cpp
     src/HighScore.cpp
+    src/GlobalLeaderboard.cpp
     src/Ghost.cpp
     src/Blinky.cpp
     src/Pinky.cpp
@@ -39,5 +46,5 @@ target_include_directories(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME}
-    PRIVATE SFML::Graphics SFML::Window SFML::System SFML::Audio
+    PRIVATE SFML::Graphics SFML::Window SFML::System SFML::Audio cpr::cpr
 )

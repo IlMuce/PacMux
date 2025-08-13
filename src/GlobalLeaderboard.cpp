@@ -12,9 +12,9 @@
 // Setup automatico:
 // 1. Account secondario GitHub dedicato alla leaderboard
 // 2. Repository pubblico "pacman-leaderboard" con file "scores.json"  
-// 3. Lettura: http://raw.githubusercontent.com/ACCOUNT_SECONDARIO/pacman-leaderboard/main/scores.json
+// 3. Lettura: https://raw.githubusercontent.com/ACCOUNT_SECONDARIO/pacman-leaderboard/main/scores.json
 // 4. Scrittura: GitHub API (HTTP) con token embedded (account isolato)
-const std::string GlobalLeaderboard::JSONBIN_URL = "http://raw.githubusercontent.com/DenisMux/pacmux-leaderboard/refs/heads/main/scores.json";
+const std::string GlobalLeaderboard::JSONBIN_URL = "https://raw.githubusercontent.com/DenisMux/pacmux-leaderboard/main/scores.json";
 const std::string GlobalLeaderboard::JSONBIN_API_KEY = ""; // Token embedded nel costruttore
 
 GlobalLeaderboard::GlobalLeaderboard(const std::string& fontFile)
@@ -42,13 +42,31 @@ GlobalLeaderboard::GlobalLeaderboard(const std::string& fontFile)
 }
 
 void GlobalLeaderboard::uploadScore(const std::string& playerName, unsigned int score) {
-    if (m_status == Status::Uploading) return; // Già in corso
-    
+    // Prepara la entry
+    GlobalEntry newEntry;
+    newEntry.playerName = playerName;
+    newEntry.score = score;
+    newEntry.timestamp = std::time(nullptr);
+    newEntry.date = getCurrentDate();
+    newEntry.country = "IT";
+
+    // Se c'è già un upload in corso, accoda
+    if (m_status == Status::Uploading || (m_uploadFuture.valid() && m_uploadFuture.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready)) {
+        m_pendingUploads.push_back(newEntry);
+        std::cout << "[DEBUG] Upload in progress, queued new entry. Queue size=" << m_pendingUploads.size() << std::endl;
+        return;
+    }
+
+    // Altrimenti avvia subito
+    startUpload(newEntry);
+}
+
+void GlobalLeaderboard::startUpload(const GlobalEntry& entry) {
     m_status = Status::Uploading;
     m_errorMessage.clear();
-    
-    // Operazione asincrona per GitHub Gist
-    m_uploadFuture = std::async(std::launch::async, [this, playerName, score]() -> bool {
+
+    // Operazione asincrona per GitHub
+    m_uploadFuture = std::async(std::launch::async, [this, entry]() -> bool {
         try {
             // Prima scarica i dati esistenti dal Gist
             std::string currentData = httpGetGist();
@@ -59,14 +77,7 @@ void GlobalLeaderboard::uploadScore(const std::string& playerName, unsigned int 
             }
             
             // Aggiungi il nuovo score
-            GlobalEntry newEntry;
-            newEntry.playerName = playerName;
-            newEntry.score = score;
-            newEntry.timestamp = std::time(nullptr);
-            newEntry.date = getCurrentDate();
-            newEntry.country = "IT"; // Default o IP-based
-            
-            scores.push_back(newEntry);
+            scores.push_back(entry);
             
             // Ordina per punteggio decrescente
             std::sort(scores.begin(), scores.end(), 
@@ -132,10 +143,18 @@ void GlobalLeaderboard::update() {
         
         bool success = m_uploadFuture.get();
         m_status = success ? Status::Success : Status::Error;
-        
+
+        // Se ci sono upload in coda, avviane subito il prossimo
+        if (!m_pendingUploads.empty()) {
+            GlobalEntry next = m_pendingUploads.front();
+            m_pendingUploads.pop_front();
+            std::cout << "[DEBUG] Starting next queued upload. Remaining=" << m_pendingUploads.size() << std::endl;
+            startUpload(next);
+            return; // Non avviare il download ora: lo faremo dopo l'ultimo upload
+        }
+
         if (success) {
-            // Dopo upload riuscito, avvia download automatico (non bloccante)
-            // Il download avverrà in background senza bloccare il gioco
+            // Dopo l'ultimo upload riuscito, avvia download automatico
             downloadLeaderboard();
         }
     }
@@ -201,9 +220,15 @@ void GlobalLeaderboard::draw(sf::RenderTarget& target, const sf::Vector2u& windo
     headerText.setPosition(sf::Vector2f(windowSize.x * 0.1f, windowSize.y * 0.2f));
     target.draw(headerText);
     
-    // Scores globali
-    for (size_t i = 0; i < std::min(m_globalScores.size(), size_t(15)); ++i) {
-        const auto& entry = m_globalScores[i];
+    // Numero di righe visibili in base all'altezza finestra
+    const std::size_t visible = computeVisibleCount(windowSize);
+    const std::size_t start = std::min(m_firstVisibleIndex, m_globalScores.empty() ? std::size_t(0) : m_globalScores.size() - 1);
+    const std::size_t end = std::min(start + visible, m_globalScores.size());
+
+    // Scores globali (scrollable)
+    for (size_t idx = start; idx < end; ++idx) {
+        const auto& entry = m_globalScores[idx];
+        size_t i = idx; // i è l'indice assoluto per rank/colori
         
         // Colore in base alla posizione
         sf::Color rankColor = sf::Color::White;
@@ -212,19 +237,20 @@ void GlobalLeaderboard::draw(sf::RenderTarget& target, const sf::Vector2u& windo
         else if (i == 2) rankColor = sf::Color(205, 127, 50);  // Bronzo
         
         std::ostringstream scoreStr;
-        scoreStr << std::setw(2) << (i + 1) << "     "
+    scoreStr << std::setw(2) << (i + 1) << "     "
                  << std::setw(10) << std::left << entry.playerName.substr(0, 10)
                  << std::setw(8) << std::right << entry.score << "     "
                  << entry.date;
         
         sf::Text scoreText(m_font, scoreStr.str(), 16);
         scoreText.setFillColor(rankColor);
-        scoreText.setPosition(sf::Vector2f(windowSize.x * 0.1f, windowSize.y * 0.25f + (i * 25.f)));
+    float rowIndex = static_cast<float>(idx - start);
+    scoreText.setPosition(sf::Vector2f(windowSize.x * 0.1f, windowSize.y * 0.25f + (rowIndex * 25.f)));
         target.draw(scoreText);
     }
     
     // Istruzioni
-    sf::Text instructionsText(m_font, "Press R to refresh, ESC to return", 16);
+    sf::Text instructionsText(m_font, "UP/DOWN per scorrere • R aggiorna • ESC menu", 16);
     instructionsText.setFillColor(sf::Color(128, 128, 128)); // Grigio
     instructionsText.setPosition(sf::Vector2f(windowSize.x * 0.1f, windowSize.y * 0.9f));
     target.draw(instructionsText);
@@ -241,6 +267,116 @@ std::string GlobalLeaderboard::httpGetGist() {
             return getFallbackData();
         }
         
+        // Primo tentativo: GitHub Contents API (meno caching)
+        if (!m_apiToken.empty()) {
+            std::string repoInfo = extractRepoInfo();
+            std::string apiUrl = "https://api.github.com/repos/" + repoInfo + "/contents/scores.json";
+            std::cout << "[DEBUG] Requesting GitHub Contents API: " << apiUrl << std::endl;
+            auto ra = cpr::Get(
+                cpr::Url{apiUrl},
+                cpr::Header{
+                    {"User-Agent", "Pacman-SFML/1.0"},
+                    {"Accept", "application/vnd.github.v3+json"},
+                    {"Authorization", "token " + m_apiToken}
+                },
+                cpr::Timeout{15000},
+                cpr::Redirect{true}
+            );
+            std::cout << "[DEBUG] Contents API Status: " << ra.status_code << std::endl;
+            if (ra.status_code == 200) {
+                const std::string& body = ra.text;
+                // Estrai il campo "content" (string JSON) tenendo conto delle sequenze escape
+                auto extractJsonStringValue = [](const std::string& json, const std::string& key) -> std::string {
+                    std::string pattern = "\"" + key + "\":"; // "content":
+                    size_t pos = json.find(pattern);
+                    if (pos == std::string::npos) return {};
+                    pos += pattern.size();
+                    // Salta spazi e due punti opzionali
+                    while (pos < json.size() && (json[pos] == ' ' || json[pos] == '\t')) pos++;
+                    if (pos >= json.size() || json[pos] != '"') return {};
+                    pos++; // dopo la prima "
+                    std::string out;
+                    bool escape = false;
+                    for (; pos < json.size(); ++pos) {
+                        char c = json[pos];
+                        if (escape) {
+                            // Decodifica principali sequenze di escape JSON
+                            switch (c) {
+                                case 'n': out.push_back('\n'); break;
+                                case 'r': out.push_back('\r'); break;
+                                case 't': out.push_back('\t'); break;
+                                case '"': out.push_back('"'); break;
+                                case '\\': out.push_back('\\'); break;
+                                default: out.push_back(c); break; // fallback: carattere letterale
+                            }
+                            escape = false;
+                        } else if (c == '\\') {
+                            escape = true;
+                        } else if (c == '"') {
+                            // fine stringa
+                            break;
+                        } else {
+                            out.push_back(c);
+                        }
+                    }
+                    return out;
+                };
+
+                std::string b64 = extractJsonStringValue(body, "content");
+                if (!b64.empty()) {
+                    // Sanitize: rimuovi newline/carriage e spazi reali (la stringa è già unescaped)
+                    b64.erase(std::remove(b64.begin(), b64.end(), '\n'), b64.end());
+                    b64.erase(std::remove(b64.begin(), b64.end(), '\r'), b64.end());
+                    b64.erase(std::remove(b64.begin(), b64.end(), ' '), b64.end());
+                    b64.erase(std::remove(b64.begin(), b64.end(), '\t'), b64.end());
+
+                    // base64 decode
+                    auto decodeB64 = [](const std::string& s) -> std::string {
+                        auto value = [](unsigned char c) -> int {
+                            if (c >= 'A' && c <= 'Z') return c - 'A';
+                            if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+                            if (c >= '0' && c <= '9') return c - '0' + 52;
+                            if (c == '+') return 62;
+                            if (c == '/') return 63;
+                            if (c == '=') return -2; // padding
+                            return -1;
+                        };
+                        std::string out;
+                        int val = 0, valb = -8;
+                        for (unsigned char c : s) {
+                            int d = value(c);
+                            if (d == -1) continue;     // ignora caratteri non base64
+                            if (d == -2) break;         // padding '='
+                            val = (val << 6) + d;
+                            valb += 6;
+                            if (valb >= 0) {
+                                out.push_back(char((val >> valb) & 0xFF));
+                                valb -= 8;
+                            }
+                        }
+                        return out;
+                    };
+
+                    std::string decoded = decodeB64(b64);
+                    if (!decoded.empty()) {
+                        std::cout << "[DEBUG] Loaded content via API (decoded length=" << decoded.size() << ")" << std::endl;
+                        // Sanity check: deve contenere la chiave leaderboard e le parentesi dell'array
+                        if (decoded.find("\"leaderboard\"") != std::string::npos &&
+                            decoded.find("[") != std::string::npos && decoded.find("]") != std::string::npos) {
+                            return decoded;
+                        } else {
+                            std::cout << "[DEBUG] Decoded payload missing leaderboard array, falling back to Raw" << std::endl;
+                        }
+                    }
+                }
+            } else {
+                if (!ra.text.empty()) {
+                    std::cout << "[DEBUG] Contents API response: " << ra.text.substr(0, 200) << std::endl;
+                }
+            }
+        }
+
+        // Fallback: Raw Files con cache buster
         std::cout << "[DEBUG] Requesting GitHub Raw Files: " << JSONBIN_URL << std::endl;
         
         // Aggiungi un timestamp per evitare la cache + numero random per maggiore unicità
@@ -256,7 +392,8 @@ std::string GlobalLeaderboard::httpGetGist() {
                 {"Pragma", "no-cache"},
                 {"Expires", "0"}
             },
-            cpr::Timeout{15000}   // 15 secondi
+            cpr::Timeout{15000},   // 15 secondi
+            cpr::Redirect{true}
         );
         
         std::cout << "[DEBUG] HTTP Status: " << r.status_code << std::endl;
@@ -279,6 +416,41 @@ std::string GlobalLeaderboard::httpGetGist() {
         std::cout << "[DEBUG] Exception in httpGetGist: " << e.what() << std::endl;
         return getFallbackData();
     }
+}
+
+// Scrolling API
+void GlobalLeaderboard::scroll(int delta) {
+    if (m_globalScores.empty()) return;
+    // delta positivo scende, negativo sale
+    long long next = static_cast<long long>(m_firstVisibleIndex) + static_cast<long long>(delta);
+    if (next < 0) next = 0;
+    if (next > static_cast<long long>(m_globalScores.size() > 0 ? m_globalScores.size() - 1 : 0)) {
+        next = static_cast<long long>(m_globalScores.size() > 0 ? m_globalScores.size() - 1 : 0);
+    }
+    m_firstVisibleIndex = static_cast<std::size_t>(next);
+}
+
+void GlobalLeaderboard::scrollToStart() {
+    m_firstVisibleIndex = 0;
+}
+
+void GlobalLeaderboard::scrollToEnd(const sf::Vector2u& windowSize) {
+    if (m_globalScores.empty()) { m_firstVisibleIndex = 0; return; }
+    std::size_t visible = computeVisibleCount(windowSize);
+    if (m_globalScores.size() > visible) {
+        m_firstVisibleIndex = m_globalScores.size() - visible;
+    } else {
+        m_firstVisibleIndex = 0;
+    }
+}
+
+std::size_t GlobalLeaderboard::computeVisibleCount(const sf::Vector2u& windowSize) const {
+    // Spazio utile: da 25% a ~90% dell'altezza; riga ~25px
+    float space = (windowSize.y * 0.9f) - (windowSize.y * 0.25f);
+    int count = static_cast<int>(space / 25.f);
+    if (count < 5) count = 5;       // almeno 5 righe
+    if (count > 50) count = 50;     // non ha senso oltre top 50
+    return static_cast<std::size_t>(count);
 }
 
 // HTTP UPDATE per GitHub Repository usando CPR
@@ -339,10 +511,33 @@ std::string GlobalLeaderboard::createScoresJson(const std::vector<GlobalEntry>& 
     std::ostringstream json;
     json << "{\"leaderboard\":[";
     
+    auto escapeJsonString = [](const std::string& s) {
+        std::string out;
+        out.reserve(s.size());
+        for (char c : s) {
+            switch (c) {
+                case '"': out += "\\\""; break;
+                case '\\': out += "\\\\"; break;
+                case '\b': out += "\\b"; break;
+                case '\f': out += "\\f"; break;
+                case '\n': out += "\\n"; break;
+                case '\r': out += "\\r"; break;
+                case '\t': out += "\\t"; break;
+                default:
+                    if (static_cast<unsigned char>(c) < 0x20) {
+                        // skip control chars
+                    } else {
+                        out.push_back(c);
+                    }
+            }
+        }
+        return out;
+    };
+
     for (size_t i = 0; i < scores.size(); ++i) {
         if (i > 0) json << ",";
         json << "{"
-             << "\"name\":\"" << scores[i].playerName << "\","
+             << "\"name\":\"" << escapeJsonString(scores[i].playerName) << "\"," 
              << "\"score\":" << scores[i].score << ","
              << "\"timestamp\":" << scores[i].timestamp
              << "}";
@@ -382,7 +577,7 @@ bool GlobalLeaderboard::parseGlobalScores(const std::string& jsonResponse, std::
     std::string arrayContent = jsonResponse.substr(arrayStart + 1, arrayEnd - arrayStart - 1);
     std::cout << "[DEBUG] Array content: " << arrayContent.substr(0, std::min(100, (int)arrayContent.length())) << std::endl;
     
-    // Parsing degli oggetti JSON individualmente con supporto per oggetti separati da virgole
+    // Parsing degli oggetti JSON: cerca "name", "score", "timestamp" in ogni oggetto
     size_t pos = 0;
     int recordsParsed = 0;
     
@@ -457,8 +652,9 @@ bool GlobalLeaderboard::parseGlobalScores(const std::string& jsonResponse, std::
             timestampStart += 12; // Salta "timestamp":
             // Salta eventuali spazi
             while (timestampStart < objContent.length() && objContent[timestampStart] == ' ') timestampStart++;
-            // Il timestamp è alla fine, quindi cerca solo la fine della stringa
-            size_t timestampEnd = objContent.length();
+            // Prendi fino a virgola o chiusura oggetto
+            size_t timestampEnd = objContent.find_first_of(",}", timestampStart);
+            if (timestampEnd == std::string::npos) timestampEnd = objContent.length();
             if (timestampEnd > timestampStart) {
                 std::string timestampStr = objContent.substr(timestampStart, timestampEnd - timestampStart);
                 entry.timestamp = std::stoul(timestampStr);

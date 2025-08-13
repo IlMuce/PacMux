@@ -9,6 +9,7 @@
 #include <ctime>
 #include <iostream>
 #include <cstdlib>
+#include <deque>
 #include "HighScore.hpp"
 
 class GlobalLeaderboard {
@@ -49,6 +50,11 @@ public:
     
     // Disegna leaderboard globale
     void draw(sf::RenderTarget& target, const sf::Vector2u& windowSize) const;
+
+    // Navigazione/scroll
+    void scroll(int delta);
+    void scrollToStart();
+    void scrollToEnd(const sf::Vector2u& windowSize);
     
     // Getter per stato
     Status getStatus() const { return m_status; }
@@ -72,6 +78,8 @@ private:
     // Per operazioni asincrone
     std::future<bool> m_uploadFuture;
     std::future<bool> m_downloadFuture;
+    std::size_t m_firstVisibleIndex = 0; // indice del primo record visibile per lo scroll
+    std::deque<GlobalEntry> m_pendingUploads; // coda di upload in attesa quando c'è già un upload in corso
     
     // HTTP helpers per GitHub Gist
     std::string httpGetGist();
@@ -89,4 +97,10 @@ private:
     std::string createGistUpdatePayload(const std::string& jsonData);
     std::string base64Encode(const std::string& data);
     std::string getCurrentFileSha();
+
+    // Calcola quanti record possono stare a schermo
+    std::size_t computeVisibleCount(const sf::Vector2u& windowSize) const;
+
+    // Avvia un upload asincrono per una entry già composta (senza accodarlo)
+    void startUpload(const GlobalEntry& entry);
 };

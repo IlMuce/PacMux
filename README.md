@@ -177,9 +177,16 @@ L’eseguibile verrà generato in `build/Release/Pacman.exe` e dovrà essere ese
 - Aggiunta punteggio a vista e moltiplicatore quando Pacman mangia i fantasmini.
 - Corretti svariati bug legati a fanatsmi, stati di gioco e audio.
 
+## Funzionalità della Release 11
+- Classifica globale online (Top 50): a fine partita puoi caricare il punteggio e vederlo nella leaderboard dal menu.
+- Scorrimento e refresh: frecce/PgUp/PgDn/Home/End per scorrere, R per aggiornare.
+- Aggiornamenti rapidi e senza blocchi: upload/download asincroni.
+- Dati su GitHub in formato JSON, parser robusto e fallback offline.
+- Implementazione: HTTP con CPR; lettura via GitHub Raw; scrittura via GitHub Contents API (Base64 + SHA).
+
 ## Prossime Release (Roadmap)
 
-## Release da 11 in poi:
+## Release da 12 in poi:
 - Aggiunta frutta
 - Aggiunta livelli
 - Grafica migliorata

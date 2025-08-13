@@ -917,6 +917,9 @@ int main()
                             case MenuOption::GLOBAL_LEADERBOARD:
                                 // Vai alla schermata della leaderboard globale
                                 gameState = GameState::GLOBAL_LEADERBOARD;
+                                // Reset scroll e avvia (ri)download
+                                globalLeaderboard->forceRefresh();
+                                globalLeaderboard->scrollToStart();
                                 break;
                             case MenuOption::EXIT:
                                 // Esci dal gioco
@@ -1002,6 +1005,24 @@ int main()
                         // Force refresh della leaderboard
                         sfxEatGhost.play(); // Suono di conferma  
                         globalLeaderboard->forceRefresh();
+                        continue;
+                    } else if (keyEvent->code == sf::Keyboard::Key::Up) {
+                        globalLeaderboard->scroll(-1);
+                        continue;
+                    } else if (keyEvent->code == sf::Keyboard::Key::Down) {
+                        globalLeaderboard->scroll(1);
+                        continue;
+                    } else if (keyEvent->code == sf::Keyboard::Key::PageUp) {
+                        globalLeaderboard->scroll(-5);
+                        continue;
+                    } else if (keyEvent->code == sf::Keyboard::Key::PageDown) {
+                        globalLeaderboard->scroll(5);
+                        continue;
+                    } else if (keyEvent->code == sf::Keyboard::Key::Home) {
+                        globalLeaderboard->scrollToStart();
+                        continue;
+                    } else if (keyEvent->code == sf::Keyboard::Key::End) {
+                        globalLeaderboard->scrollToEnd(window.getSize());
                         continue;
                     }
                 }

@@ -683,6 +683,9 @@ int main()
                 // Poi chiedi per upload globale (indipendentemente dal record locale)
                 if (askForGlobalUpload(window, fontPath.string(), finalScore)) {
                     // L'utente vuole caricare online
+                    // Svuota il buffer degli eventi per evitare che la Y rimanga
+                    while (window.pollEvent()) { /* svuota buffer */ }
+                    
                     std::string globalPlayerName = inputPlayerNameForGlobal(window, fontPath.string(), finalScore);
                     globalLeaderboard->uploadScore(globalPlayerName, finalScore);
                 }

@@ -41,6 +41,15 @@ GlobalLeaderboard::GlobalLeaderboard(const std::string& fontFile)
     }
 }
 
+void GlobalLeaderboard::setActive(bool active) {
+    m_active = active;
+}
+
+void GlobalLeaderboard::cancelAsync() {
+    // Best-effort: segnala ai thread di terminare il prima possibile
+    m_cancelRequested.store(true);
+}
+
 void GlobalLeaderboard::uploadScore(const std::string& playerName, unsigned int score) {
     // Prepara la entry
     GlobalEntry newEntry;
@@ -53,7 +62,7 @@ void GlobalLeaderboard::uploadScore(const std::string& playerName, unsigned int 
     // Se c'è già un upload in corso, accoda
     if (m_status == Status::Uploading || (m_uploadFuture.valid() && m_uploadFuture.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready)) {
         m_pendingUploads.push_back(newEntry);
-        std::cout << "[DEBUG] Upload in progress, queued new entry. Queue size=" << m_pendingUploads.size() << std::endl;
+    // std::cout << "[DEBUG] Upload in progress, queued new entry. Queue size=" << m_pendingUploads.size() << std::endl;
         return;
     }
 
@@ -92,8 +101,8 @@ void GlobalLeaderboard::startUpload(const GlobalEntry& entry) {
             
             // Crea JSON e carica su GitHub Raw Files
             std::string jsonData = createScoresJson(scores);
-            std::cout << "[DEBUG] JSON being uploaded: " << jsonData.substr(0, std::min(200, (int)jsonData.length())) << std::endl;
-            std::cout << "[DEBUG] Total scores in upload: " << scores.size() << std::endl;
+            // std::cout << "[DEBUG] JSON being uploaded: " << jsonData.substr(0, std::min(200, (int)jsonData.length())) << std::endl;
+            // std::cout << "[DEBUG] Total scores in upload: " << scores.size() << std::endl;
             return httpUpdateGist(jsonData);
             
         } catch (const std::exception& e) {
@@ -104,34 +113,46 @@ void GlobalLeaderboard::startUpload(const GlobalEntry& entry) {
 }
 
 void GlobalLeaderboard::downloadLeaderboard() {
+    // Allow initial downloads by removing the active gate
+    // if (!m_active) return; // Evita download quando la schermata non è visibile
     if (m_status == Status::Downloading) return; // Già in corso
     
     m_status = Status::Downloading;
     m_errorMessage.clear();
+    m_downloadStart = std::chrono::steady_clock::now();
+    // Keep spinner visible for at least ~2000ms
+    m_minSpinnerUntil = m_downloadStart + std::chrono::milliseconds(2000);
+    m_hasPendingStatus = false;
+    m_nextStatus = Status::Idle;
     
     // Operazione asincrona per GitHub Gist
     m_downloadFuture = std::async(std::launch::async, [this]() -> bool {
         try {
-            std::cout << "[DEBUG] Starting download from GitHub Gist..." << std::endl;
+            // std::cout << "[DEBUG] Starting download from GitHub..." << std::endl;
+            if (m_cancelRequested.load()) return false;
             std::string response = httpGetGist();
             
             if (response.empty()) {
-                std::cout << "[DEBUG] Empty response, using fallback data" << std::endl;
-                response = getFallbackData();
+                // std::cout << "[DEBUG] Empty response - likely offline or misconfigured" << std::endl;
+                return false; // segnala errore (no update)
             }
             
-            std::cout << "[DEBUG] Parsing response..." << std::endl;
-            bool success = parseGlobalScores(response, m_globalScores);
-            std::cout << "[DEBUG] Parse result: " << success << ", scores count: " << m_globalScores.size() << std::endl;
+            // Parse response
+            std::vector<GlobalEntry> tmp;
+            if (m_cancelRequested.load()) return false;
+            bool success = parseGlobalScores(response, tmp);
+            // std::cout << "[DEBUG] Parse result: " << success << ", count: " << tmp.size() << std::endl;
+            if (success) {
+                // Non toccare m_globalScores dal thread: salva in staging buffer
+                std::lock_guard<std::mutex> lock(m_mutex);
+                m_threadDownloadedScores = std::move(tmp);
+            }
             return success;
         }
         catch (const std::exception& e) {
-            std::cout << "[DEBUG] Download exception: " << e.what() << std::endl;
+            // std::cout << "[DEBUG] Download exception: " << e.what() << std::endl;
             m_errorMessage = "Download failed: " + std::string(e.what());
-            
-            // Fallback in caso di errore
-            std::string fallback = getFallbackData();
-            return parseGlobalScores(fallback, m_globalScores);
+            return false;
         }
     });
 }
@@ -148,7 +169,7 @@ void GlobalLeaderboard::update() {
         if (!m_pendingUploads.empty()) {
             GlobalEntry next = m_pendingUploads.front();
             m_pendingUploads.pop_front();
-            std::cout << "[DEBUG] Starting next queued upload. Remaining=" << m_pendingUploads.size() << std::endl;
+            // std::cout << "[DEBUG] Starting next queued upload. Remaining=" << m_pendingUploads.size() << std::endl;
             startUpload(next);
             return; // Non avviare il download ora: lo faremo dopo l'ultimo upload
         }
@@ -162,9 +183,34 @@ void GlobalLeaderboard::update() {
     // Controlla se download è completato
     if (m_downloadFuture.valid() && 
         m_downloadFuture.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
-        
         bool success = m_downloadFuture.get();
-        m_status = success ? Status::Success : Status::Error;
+        // Defer status switch if spinner min time not elapsed
+        auto now = std::chrono::steady_clock::now();
+        if (now < m_minSpinnerUntil) {
+            m_hasPendingStatus = true;
+            m_nextStatus = success ? Status::Success : Status::Error;
+        } else {
+            m_status = success ? Status::Success : Status::Error;
+        }
+    if (success && !m_cancelRequested.load()) {
+            // Applica i risultati scaricati in modo thread-safe
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (!m_threadDownloadedScores.empty()) {
+                m_globalScores.swap(m_threadDownloadedScores);
+                m_threadDownloadedScores.clear();
+            }
+            m_lastUpdated = std::time(nullptr);
+        }
+        if (!m_hasPendingStatus) {
+            m_status = success ? Status::Success : Status::Error;
+        }
+    m_cancelRequested.store(false); // reset dopo completamento
+    }
+
+    // If we have a pending status change, apply it once the dwell passes
+    if (m_hasPendingStatus && std::chrono::steady_clock::now() >= m_minSpinnerUntil) {
+        m_status = m_nextStatus;
+        m_hasPendingStatus = false;
     }
 }
 
@@ -183,33 +229,74 @@ void GlobalLeaderboard::draw(sf::RenderTarget& target, const sf::Vector2u& windo
     sf::Text statusText(m_font, "", 16);
     switch (m_status) {
         case Status::Uploading:
-            statusText.setString("Uploading...");
+            {
+                std::ostringstream s;
+                s << "Uploading";
+                if (!m_pendingUploads.empty()) {
+                    s << " (in coda: " << m_pendingUploads.size() << ")";
+                }
+                statusText.setString(s.str());
+            }
             statusText.setFillColor(sf::Color::Yellow);
             break;
-        case Status::Downloading:
-            statusText.setString("Downloading...");
+        case Status::Downloading: {
+            // Piccolo spinner: ruota tra '|', '/', '-', '\\'
+            static const char* frames = "|/-\\";
+            static int idx = 0;
+            idx = (idx + 1) % 4;
+            std::string s = std::string("Downloading ") + frames[idx];
+            statusText.setString(s);
             statusText.setFillColor(sf::Color::Cyan);
             break;
+        }
         case Status::Error:
-            statusText.setString("Connection Error: " + m_errorMessage);
+            statusText.setString("Offline o errore di rete (R per riprovare)");
             statusText.setFillColor(sf::Color::Red);
             break;
         case Status::Success:
-            statusText.setString("Connected - Updates may take 5 minutes to appear");
+            statusText.setString("Connesso");
             statusText.setFillColor(sf::Color::Green);
             break;
         default:
-            statusText.setString("Offline Mode");
+            statusText.setString("Offline");
             statusText.setFillColor(sf::Color::White);
             break;
     }
     statusText.setPosition(sf::Vector2f(10.f, 10.f));
     target.draw(statusText);
+
+    // Last updated indicator (on same line, next to status)
+    if (m_lastUpdated > 0) {
+        std::time_t t = m_lastUpdated;
+        std::ostringstream ts;
+        ts << " • Ultimo aggiornamento: " << std::put_time(std::localtime(&t), "%H:%M:%S");
+        // Append as a separate text right after status width
+        sf::FloatRect sb = statusText.getLocalBounds();
+        float x = statusText.getPosition().x + sb.size.x + 12.f; // padding
+        float y = statusText.getPosition().y;
+        sf::Text lastUpd(m_font, ts.str(), 16);
+        lastUpd.setFillColor(sf::Color(180, 180, 180));
+        lastUpd.setPosition(sf::Vector2f(x, y));
+        target.draw(lastUpd);
+    }
     
     if (m_globalScores.empty()) {
-        sf::Text noDataText(m_font, "No global data available", 20);
-        noDataText.setFillColor(sf::Color(128, 128, 128)); // Grigio
-        noDataText.setPosition(sf::Vector2f(windowSize.x * 0.3f, windowSize.y * 0.5f));
+        // Mostra messaggio coerente con lo stato corrente
+        std::string msg;
+        sf::Color col = sf::Color(128,128,128);
+        if (m_status == Status::Downloading) {
+            msg = "Caricamento classifica...";
+            col = sf::Color::Cyan;
+        } else if (m_status == Status::Error) {
+            msg = "Nessuna connessione: premi R per riprovare";
+            col = sf::Color(200, 80, 80);
+        } else {
+            msg = "Premi R per scaricare la classifica";
+        }
+        sf::Text noDataText(m_font, msg, 20);
+        noDataText.setFillColor(col);
+        // Posiziona con margine a sinistra per evitare tagli
+        noDataText.setPosition(sf::Vector2f(windowSize.x * 0.1f, windowSize.y * 0.5f));
         target.draw(noDataText);
         return;
     }
@@ -250,7 +337,15 @@ void GlobalLeaderboard::draw(sf::RenderTarget& target, const sf::Vector2u& windo
     }
     
     // Istruzioni
-    sf::Text instructionsText(m_font, "UP/DOWN per scorrere • R aggiorna • ESC menu", 16);
+    bool isDownloading = (m_status == Status::Downloading);
+    bool showSlowHint = false;
+    if (isDownloading) {
+        auto elapsed = std::chrono::steady_clock::now() - m_downloadStart;
+        showSlowHint = std::chrono::duration_cast<std::chrono::seconds>(elapsed).count() >= 5;
+    }
+    std::string instr = "UP/DOWN per scorrere. R aggiorna. ESC menu";
+    if (showSlowHint) instr += "  (lento? premi R)";
+    sf::Text instructionsText(m_font, instr, 16);
     instructionsText.setFillColor(sf::Color(128, 128, 128)); // Grigio
     instructionsText.setPosition(sf::Vector2f(windowSize.x * 0.1f, windowSize.y * 0.9f));
     target.draw(instructionsText);
@@ -262,16 +357,16 @@ std::string GlobalLeaderboard::httpGetGist() {
         // Se configurazione non è ancora aggiornata con account secondario, usa dati simulati
         if (JSONBIN_URL.find("ACCOUNT_SECONDARIO") != std::string::npos || 
             m_apiToken.find("SOSTITUISCI") != std::string::npos) {
-            
-            std::cout << "[DEBUG] GitHub Raw Files not configured, using fallback data" << std::endl;
-            return getFallbackData();
+            // Config non completata: non restituire dati fittizi in runtime
+            // std::cout << "[DEBUG] GitHub not configured - returning empty to avoid fake data" << std::endl;
+            return "";
         }
         
         // Primo tentativo: GitHub Contents API (meno caching)
         if (!m_apiToken.empty()) {
             std::string repoInfo = extractRepoInfo();
             std::string apiUrl = "https://api.github.com/repos/" + repoInfo + "/contents/scores.json";
-            std::cout << "[DEBUG] Requesting GitHub Contents API: " << apiUrl << std::endl;
+            // std::cout << "[DEBUG] Requesting GitHub Contents API: " << apiUrl << std::endl;
             auto ra = cpr::Get(
                 cpr::Url{apiUrl},
                 cpr::Header{
@@ -282,7 +377,7 @@ std::string GlobalLeaderboard::httpGetGist() {
                 cpr::Timeout{15000},
                 cpr::Redirect{true}
             );
-            std::cout << "[DEBUG] Contents API Status: " << ra.status_code << std::endl;
+            // std::cout << "[DEBUG] Contents API Status: " << ra.status_code << std::endl;
             if (ra.status_code == 200) {
                 const std::string& body = ra.text;
                 // Estrai il campo "content" (string JSON) tenendo conto delle sequenze escape
@@ -359,29 +454,29 @@ std::string GlobalLeaderboard::httpGetGist() {
 
                     std::string decoded = decodeB64(b64);
                     if (!decoded.empty()) {
-                        std::cout << "[DEBUG] Loaded content via API (decoded length=" << decoded.size() << ")" << std::endl;
+                        // std::cout << "[DEBUG] Loaded content via API (decoded length=" << decoded.size() << ")" << std::endl;
                         // Sanity check: deve contenere la chiave leaderboard e le parentesi dell'array
                         if (decoded.find("\"leaderboard\"") != std::string::npos &&
                             decoded.find("[") != std::string::npos && decoded.find("]") != std::string::npos) {
                             return decoded;
                         } else {
-                            std::cout << "[DEBUG] Decoded payload missing leaderboard array, falling back to Raw" << std::endl;
+                            // std::cout << "[DEBUG] Decoded payload missing leaderboard array, falling back to Raw" << std::endl;
                         }
                     }
                 }
             } else {
                 if (!ra.text.empty()) {
-                    std::cout << "[DEBUG] Contents API response: " << ra.text.substr(0, 200) << std::endl;
+                    // std::cout << "[DEBUG] Contents API response: " << ra.text.substr(0, 200) << std::endl;
                 }
             }
         }
 
         // Fallback: Raw Files con cache buster
-        std::cout << "[DEBUG] Requesting GitHub Raw Files: " << JSONBIN_URL << std::endl;
+    // std::cout << "[DEBUG] Requesting GitHub Raw Files: " << JSONBIN_URL << std::endl;
         
         // Aggiungi un timestamp per evitare la cache + numero random per maggiore unicità
         std::string urlWithTimestamp = JSONBIN_URL + "?_=" + std::to_string(std::time(nullptr)) + "&r=" + std::to_string(std::rand());
-        std::cout << "[DEBUG] URL with cache-buster: " << urlWithTimestamp << std::endl;
+    // std::cout << "[DEBUG] URL with cache-buster: " << urlWithTimestamp << std::endl;
         
         auto r = cpr::Get(
             cpr::Url{urlWithTimestamp},
@@ -396,25 +491,25 @@ std::string GlobalLeaderboard::httpGetGist() {
             cpr::Redirect{true}
         );
         
-        std::cout << "[DEBUG] HTTP Status: " << r.status_code << std::endl;
+    // std::cout << "[DEBUG] HTTP Status: " << r.status_code << std::endl;
         
         if (r.status_code == 200) {
-            std::cout << "[DEBUG] GitHub Raw Files data loaded successfully!" << std::endl;
-            std::cout << "[DEBUG] Content length: " << r.text.length() << std::endl;
+            // std::cout << "[DEBUG] GitHub Raw Files data loaded successfully!" << std::endl;
+            // std::cout << "[DEBUG] Content length: " << r.text.length() << std::endl;
             return r.text;
         } else {
-            std::cout << "[DEBUG] HTTP error: " << r.status_code << " - " << r.error.message << std::endl;
+            // std::cout << "[DEBUG] HTTP error: " << r.status_code << " - " << r.error.message << std::endl;
             if (!r.text.empty()) {
-                std::cout << "[DEBUG] Response: " << r.text.substr(0, 200) << std::endl;
+                // std::cout << "[DEBUG] Response: " << r.text.substr(0, 200) << std::endl;
             }
         }
         
-        std::cout << "[DEBUG] Failed to connect to GitHub Raw Files, using fallback data" << std::endl;
-        return getFallbackData();
+    // std::cout << "[DEBUG] Failed to connect to GitHub (Raw) - returning empty" << std::endl;
+        return "";
         
     } catch (const std::exception& e) {
-        std::cout << "[DEBUG] Exception in httpGetGist: " << e.what() << std::endl;
-        return getFallbackData();
+    // std::cout << "[DEBUG] Exception in httpGetGist: " << e.what() << std::endl;
+        return "";
     }
 }
 
@@ -460,8 +555,8 @@ bool GlobalLeaderboard::httpUpdateGist(const std::string& jsonData) {
         if (JSONBIN_URL.find("ACCOUNT_SECONDARIO") != std::string::npos || 
             m_apiToken.find("SOSTITUISCI") != std::string::npos) {
             
-            std::cout << "[DEBUG] GitHub Raw Files not configured, simulating upload..." << std::endl;
-            std::cout << "[DEBUG] Data to upload: " << jsonData.substr(0, std::min(100, (int)jsonData.length())) << std::endl;
+            // std::cout << "[DEBUG] GitHub Raw Files not configured, simulating upload..." << std::endl;
+            // std::cout << "[DEBUG] Data to upload: " << jsonData.substr(0, std::min(100, (int)jsonData.length())) << std::endl;
             return true; // Simula successo
         }
         
@@ -472,8 +567,8 @@ bool GlobalLeaderboard::httpUpdateGist(const std::string& jsonData) {
         // Crea il payload per aggiornare il file
         std::string payload = createGitHubUpdatePayload(jsonData);
         
-        std::cout << "[DEBUG] Updating GitHub file via API: " << apiUrl << std::endl;
-        std::cout << "[DEBUG] Payload size: " << payload.length() << std::endl;
+    // std::cout << "[DEBUG] Updating GitHub file via API: " << apiUrl << std::endl;
+    // std::cout << "[DEBUG] Payload size: " << payload.length() << std::endl;
         
         auto r = cpr::Put(
             cpr::Url{apiUrl},
@@ -487,22 +582,22 @@ bool GlobalLeaderboard::httpUpdateGist(const std::string& jsonData) {
             cpr::Timeout{15000}
         );
         
-        std::cout << "[DEBUG] GitHub API Status: " << r.status_code << std::endl;
+    // std::cout << "[DEBUG] GitHub API Status: " << r.status_code << std::endl;
         
         if (r.status_code == 200 || r.status_code == 201) {
-            std::cout << "[DEBUG] GitHub file update successful!" << std::endl;
-            std::cout << "[INFO] Score uploaded! Visual update may take 5-10 minutes due to GitHub CDN cache." << std::endl;
+            // std::cout << "[DEBUG] GitHub file update successful!" << std::endl;
+            // std::cout << "[INFO] Score uploaded! Visual update may take 5-10 minutes due to GitHub CDN cache." << std::endl;
             return true;
         } else {
-            std::cout << "[DEBUG] GitHub file update failed: " << r.status_code << " - " << r.error.message << std::endl;
+            // std::cout << "[DEBUG] GitHub file update failed: " << r.status_code << " - " << r.error.message << std::endl;
             if (!r.text.empty()) {
-                std::cout << "[DEBUG] Response: " << r.text.substr(0, 200) << std::endl;
+                // std::cout << "[DEBUG] Response: " << r.text.substr(0, 200) << std::endl;
             }
             return false;
         }
         
     } catch (const std::exception& e) {
-        std::cout << "[DEBUG] Exception in httpUpdateGist: " << e.what() << std::endl;
+    // std::cout << "[DEBUG] Exception in httpUpdateGist: " << e.what() << std::endl;
         return false;
     }
 }
@@ -551,31 +646,32 @@ bool GlobalLeaderboard::parseGlobalScores(const std::string& jsonResponse, std::
     scores.clear();
     
     if (jsonResponse.empty()) {
-        std::cout << "[DEBUG] JSON response is empty" << std::endl;
+    // std::cout << "[DEBUG] JSON response is empty" << std::endl;
         return true; // Primo utilizzo, nessun dato ancora
     }
     
-    std::cout << "[DEBUG] JSON to parse: " << jsonResponse.substr(0, std::min(150, (int)jsonResponse.length())) << std::endl;
+    // Log limitato per evitare lag
+    // std::cout << "[DEBUG] JSON to parse: " << jsonResponse.substr(0, std::min(150, (int)jsonResponse.length())) << std::endl;
     
     // Cerca l'array "leaderboard" nel JSON
     size_t leaderboardPos = jsonResponse.find("\"leaderboard\":");
     if (leaderboardPos == std::string::npos) {
-        std::cout << "[DEBUG] 'leaderboard' key not found in JSON" << std::endl;
+    // std::cout << "[DEBUG] 'leaderboard' key not found in JSON" << std::endl;
         return false; // Formato JSON non valido
     }
     
     size_t arrayStart = jsonResponse.find("[", leaderboardPos);
     size_t arrayEnd = jsonResponse.find("]", arrayStart);
     if (arrayStart == std::string::npos || arrayEnd == std::string::npos) {
-        std::cout << "[DEBUG] Array brackets not found" << std::endl;
+    // std::cout << "[DEBUG] Array brackets not found" << std::endl;
         return false;
     }
     
-    std::cout << "[DEBUG] Array found from " << arrayStart << " to " << arrayEnd << std::endl;
+    // std::cout << "[DEBUG] Array bounds: " << arrayStart << "-" << arrayEnd << std::endl;
     
     // Estrai il contenuto dell'array
     std::string arrayContent = jsonResponse.substr(arrayStart + 1, arrayEnd - arrayStart - 1);
-    std::cout << "[DEBUG] Array content: " << arrayContent.substr(0, std::min(100, (int)arrayContent.length())) << std::endl;
+    // std::cout << "[DEBUG] Array content preview: " << arrayContent.substr(0, std::min(100, (int)arrayContent.length())) << std::endl;
     
     // Parsing degli oggetti JSON: cerca "name", "score", "timestamp" in ogni oggetto
     size_t pos = 0;
@@ -603,13 +699,13 @@ bool GlobalLeaderboard::parseGlobalScores(const std::string& jsonResponse, std::
         }
         
         if (braceCount != 0) {
-            std::cout << "[DEBUG] Unmatched braces in JSON object" << std::endl;
+            // std::cout << "[DEBUG] Unmatched braces in JSON object" << std::endl;
             break;
         }
         
         // Estrai l'oggetto JSON (senza le parentesi graffe)
         std::string objContent = arrayContent.substr(objStart + 1, objEnd - objStart - 2);
-        std::cout << "[DEBUG] Processing object " << (recordsParsed + 1) << ": " << objContent << std::endl;
+    // Riduci logging per evitare stutter
         
         GlobalEntry entry;
         int fieldsFound = 0;
@@ -626,7 +722,7 @@ bool GlobalLeaderboard::parseGlobalScores(const std::string& jsonResponse, std::
                 if (nameEnd != std::string::npos) {
                     entry.playerName = objContent.substr(nameStart, nameEnd - nameStart);
                     fieldsFound++;
-                    std::cout << "[DEBUG] Found name: " << entry.playerName << std::endl;
+                    // name parsed
                 }
             }
         }
@@ -642,7 +738,7 @@ bool GlobalLeaderboard::parseGlobalScores(const std::string& jsonResponse, std::
                 std::string scoreStr = objContent.substr(scoreStart, scoreEnd - scoreStart);
                 entry.score = std::stoul(scoreStr);
                 fieldsFound++;
-                std::cout << "[DEBUG] Found score: " << entry.score << std::endl;
+                // score parsed
             }
         }
         
@@ -666,28 +762,28 @@ bool GlobalLeaderboard::parseGlobalScores(const std::string& jsonResponse, std::
                 entry.date = dateStream.str();
                 
                 fieldsFound++;
-                std::cout << "[DEBUG] Found timestamp: " << entry.timestamp << " (" << entry.date << ")" << std::endl;
+                // timestamp parsed
             } else {
-                std::cout << "[DEBUG] Timestamp end not found in: " << objContent << std::endl;
+                // std::cout << "[DEBUG] Timestamp end not found in: " << objContent << std::endl;
             }
         } else {
-            std::cout << "[DEBUG] Timestamp key not found in: " << objContent << std::endl;
+            // std::cout << "[DEBUG] Timestamp key not found in: " << objContent << std::endl;
         }
         
         // Aggiungi il record se ha tutti i campi
         if (fieldsFound >= 3) {
             scores.push_back(entry);
             recordsParsed++;
-            std::cout << "[DEBUG] Added record " << recordsParsed << ": " << entry.playerName << " - " << entry.score << std::endl;
+            // record added
         } else {
-            std::cout << "[DEBUG] Skipping incomplete record (found " << fieldsFound << " fields)" << std::endl;
+            // std::cout << "[DEBUG] Skipping incomplete record (found " << fieldsFound << " fields)" << std::endl;
         }
         
         // Vai al prossimo oggetto dopo la parentesi di chiusura
         pos = objEnd;
     }
     
-    std::cout << "[DEBUG] Parsing completed. Found " << scores.size() << " scores" << std::endl;
+    // std::cout << "[DEBUG] Parsed " << scores.size() << " scores" << std::endl;
     
     // Ordina per punteggio decrescente
     std::sort(scores.begin(), scores.end(), 
@@ -709,39 +805,20 @@ std::string GlobalLeaderboard::getCurrentDate() const {
 
 // Helper functions per GitHub Raw Files
 std::string GlobalLeaderboard::getFallbackData() {
-    std::cout << "[DEBUG] Using fallback data..." << std::endl;
+    // std::cout << "[DEBUG] Using fallback data..." << std::endl;
     return "{\"leaderboard\":[{\"name\":\"MasterPac\",\"score\":15000,\"timestamp\":1691750400},{\"name\":\"GhostHunter\",\"score\":12500,\"timestamp\":1691750300},{\"name\":\"DotEater\",\"score\":11200,\"timestamp\":1691750200},{\"name\":\"PowerPellet\",\"score\":9800,\"timestamp\":1691750100},{\"name\":\"CherryPicker\",\"score\":8500,\"timestamp\":1691750000}]}";
 }
 
 std::string GlobalLeaderboard::extractGistIdFromUrl() {
     // Per GitHub Raw Files estrae owner/repo dal URL
     // URL formato: http://raw.githubusercontent.com/DenisMux/pacmux-leaderboard/refs/heads/main/scores.json
-    std::cout << "[DEBUG] Full URL: " << JSONBIN_URL << std::endl;
+    // std::cout << "[DEBUG] Full URL: " << JSONBIN_URL << std::endl;
     
     // TEMPORANEO: Hard-code del valore corretto per testare l'upload
     std::string hardcoded = "DenisMux/pacmux-leaderboard";
-    std::cout << "[DEBUG] Using hardcoded repo info: '" << hardcoded << "'" << std::endl;
+    // std::cout << "[DEBUG] Using hardcoded repo info: '" << hardcoded << "'" << std::endl;
     return hardcoded;
     
-    /*
-    // Cerca specificamente "/raw.githubusercontent.com/" per il URL dei raw files
-    size_t rawStart = JSONBIN_URL.find("/raw.githubusercontent.com/");
-    if (rawStart != std::string::npos) {
-        size_t userStart = rawStart + 24; // Salta "/raw.githubusercontent.com/"
-        size_t repoEnd = JSONBIN_URL.find("/refs/heads/main/", userStart);
-        if (repoEnd == std::string::npos) {
-            repoEnd = JSONBIN_URL.find("/main/", userStart);  // Fallback per formato old
-        }
-        if (repoEnd != std::string::npos) {
-            std::string extracted = JSONBIN_URL.substr(userStart, repoEnd - userStart);
-            std::cout << "[DEBUG] Extracted repo info: '" << extracted << "'" << std::endl;
-            return extracted;
-        }
-    }
-    
-    std::cout << "[DEBUG] Failed to extract repo info, using fallback" << std::endl;
-    return "DenisMux/pacmux-leaderboard";
-    */
 }
 
 std::string GlobalLeaderboard::extractRepoInfo() {
@@ -799,7 +876,7 @@ std::string GlobalLeaderboard::getCurrentFileSha() {
         std::string repoInfo = extractRepoInfo();
         std::string apiUrl = "https://api.github.com/repos/" + repoInfo + "/contents/scores.json";
         
-        std::cout << "[DEBUG] Getting current file SHA from: " << apiUrl << std::endl;
+    // std::cout << "[DEBUG] Getting current file SHA from: " << apiUrl << std::endl;
         
         auto r = cpr::Get(
             cpr::Url{apiUrl},
@@ -811,7 +888,7 @@ std::string GlobalLeaderboard::getCurrentFileSha() {
             cpr::Timeout{10000}
         );
         
-        std::cout << "[DEBUG] SHA Request Status: " << r.status_code << std::endl;
+    // std::cout << "[DEBUG] SHA Request Status: " << r.status_code << std::endl;
         
         if (r.status_code == 200) {
             // Estrai lo SHA dalla risposta JSON
@@ -822,19 +899,19 @@ std::string GlobalLeaderboard::getCurrentFileSha() {
                 size_t shaEnd = response.find("\"", shaStart);
                 if (shaEnd != std::string::npos) {
                     std::string sha = response.substr(shaStart, shaEnd - shaStart);
-                    std::cout << "[DEBUG] Current file SHA: " << sha << std::endl;
+                    // std::cout << "[DEBUG] Current file SHA: " << sha << std::endl;
                     return sha;
                 }
             }
         } else {
-            std::cout << "[DEBUG] Failed to get SHA: " << r.status_code << " - " << r.error.message << std::endl;
+            // std::cout << "[DEBUG] Failed to get SHA: " << r.status_code << " - " << r.error.message << std::endl;
         }
         
     } catch (const std::exception& e) {
-        std::cout << "[DEBUG] Exception getting SHA: " << e.what() << std::endl;
+    // std::cout << "[DEBUG] Exception getting SHA: " << e.what() << std::endl;
     }
     
     // Fallback: usa SHA dummy (questo causerà errore ma è meglio di niente)
-    std::cout << "[DEBUG] Using dummy SHA - upload will likely fail" << std::endl;
+    // std::cout << "[DEBUG] Using dummy SHA - upload will likely fail" << std::endl;
     return "dummy_sha_will_be_updated";
 }

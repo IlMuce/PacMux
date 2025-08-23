@@ -7,9 +7,12 @@
 #include <future>
 #include <memory>
 #include <ctime>
+#include <chrono>
 #include <iostream>
 #include <cstdlib>
 #include <deque>
+#include <atomic>
+#include <mutex>
 #include "HighScore.hpp"
 
 class GlobalLeaderboard {
@@ -44,6 +47,12 @@ public:
             downloadLeaderboard(); 
         }
     }
+
+    // Visibilità/attività della schermata: quando non attiva, evita refresh automatici
+    void setActive(bool active);
+    bool isActive() const { return m_active; }
+    // Richiedi annullamento delle operazioni asincrone in corso (best-effort)
+    void cancelAsync();
     
     // Aggiorna stato delle operazioni asincrone
     void update();
@@ -80,6 +89,17 @@ private:
     std::future<bool> m_downloadFuture;
     std::size_t m_firstVisibleIndex = 0; // indice del primo record visibile per lo scroll
     std::deque<GlobalEntry> m_pendingUploads; // coda di upload in attesa quando c'è già un upload in corso
+    std::time_t m_lastUpdated = 0; // timestamp dell'ultimo download riuscito
+    // Buffer thread-safe per risultati di download, per evitare data race con draw()
+    std::vector<GlobalEntry> m_threadDownloadedScores;
+    mutable std::mutex m_mutex;
+    std::atomic_bool m_cancelRequested{false};
+    bool m_active = false;
+    std::chrono::steady_clock::time_point m_downloadStart;
+    // Ensure the download spinner is visible at least for a short time
+    std::chrono::steady_clock::time_point m_minSpinnerUntil{};
+    Status m_nextStatus = Status::Idle;
+    bool m_hasPendingStatus = false;
     
     // HTTP helpers per GitHub Gist
     std::string httpGetGist();

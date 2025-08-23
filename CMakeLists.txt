@@ -10,8 +10,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Opzionale: forza definizione per find_package
 #set(SFML_STATIC_LIBRARIES TRUE)
 
-# Trova SFML 3, richiedendo i componenti Graphics, Window, System e Audio
-find_package(SFML 3 REQUIRED COMPONENTS Graphics Window System Audio)
+# Trova SFML 3
+if (WIN32)
+    # Su Windows, quando si compila come GUI (WIN32_EXECUTABLE), serve anche il wrapper WinMain
+    find_package(SFML 3 REQUIRED COMPONENTS Graphics Window System Audio Main)
+else()
+    find_package(SFML 3 REQUIRED COMPONENTS Graphics Window System Audio)
+endif()
 
 # Aggiungi CPR per HTTP requests (usato da GlobalLeaderboard)
 include(FetchContent)
@@ -41,6 +46,11 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>/assets"
 )
 
+# Hide console window on Windows by building as a GUI application
+if (WIN32)
+    set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
+endif()
+
 target_include_directories(${PROJECT_NAME}
     PRIVATE src include
 )
@@ -48,3 +58,8 @@ target_include_directories(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
     PRIVATE SFML::Graphics SFML::Window SFML::System SFML::Audio cpr::cpr
 )
+
+# Linka il wrapper WinMain solo su Windows per usare int main() con sottosistema GUI
+if (WIN32 AND TARGET SFML::Main)
+    target_link_libraries(${PROJECT_NAME} PRIVATE SFML::Main)
+endif()

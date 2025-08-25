@@ -66,20 +66,20 @@ void showMessage(sf::RenderWindow& window, const std::string& message, const std
         }
         
         window.display();
-        
-        auto event = window.waitEvent(); // SFML 3: returns std::optional<sf::Event>
-        if (!event) continue;
-        if (event->is<sf::Event::KeyPressed>()) {
-            // Access event data through the variant-like interface
-            if (auto keyEvent = event->getIf<sf::Event::KeyPressed>()) {
-                if (keyEvent->code == sf::Keyboard::Key::Enter) {
-                    waiting = false; // Exit the loop instead of breaking
+
+        // Non bloccare: processa tutti gli eventi disponibili e continua a disegnare
+        while (auto event = window.pollEvent()) {
+            if (event->is<sf::Event::Closed>()) {
+                window.close();
+                exit(0);
+            }
+            if (event->is<sf::Event::KeyPressed>()) {
+                if (auto keyEvent = event->getIf<sf::Event::KeyPressed>()) {
+                    if (keyEvent->code == sf::Keyboard::Key::Enter) {
+                        waiting = false; // Exit the loop instead of breaking
+                    }
                 }
             }
-        }
-        if (event->is<sf::Event::Closed>()) {
-            window.close();
-            exit(0);
         }
     }
 }
@@ -279,11 +279,13 @@ std::string inputPlayerName(sf::RenderWindow& window, const std::string& fontPat
         window.draw(instructText);
         
         window.display();
-        
-        auto event = window.waitEvent();
-        if (!event) continue;
-        
-        if (event->is<sf::Event::KeyPressed>()) {
+
+        // Non bloccare: processa tutti gli eventi disponibili
+        while (auto event = window.pollEvent()) {
+            if (event->is<sf::Event::Closed>()) { window.close(); return "PLAYER"; }
+            if (!event->is<sf::Event::KeyPressed>() && !event->is<sf::Event::TextEntered>()) continue;
+            
+            if (event->is<sf::Event::KeyPressed>()) {
             if (auto keyEvent = event->getIf<sf::Event::KeyPressed>()) {
                 if (keyEvent->code == sf::Keyboard::Key::Enter) {
                     if (playerName.empty()) {
@@ -296,7 +298,7 @@ std::string inputPlayerName(sf::RenderWindow& window, const std::string& fontPat
                     }
                 }
             }
-        } else if (event->is<sf::Event::TextEntered>()) {
+            } else if (event->is<sf::Event::TextEntered>()) {
             if (auto textEvent = event->getIf<sf::Event::TextEntered>()) {
                 std::uint32_t unicode = textEvent->unicode;
                 // Accetta solo caratteri alfanumerici e spazi (max 10 caratteri)
@@ -307,9 +309,7 @@ std::string inputPlayerName(sf::RenderWindow& window, const std::string& fontPat
                     }
                 }
             }
-        } else if (event->is<sf::Event::Closed>()) {
-            window.close();
-            return "PLAYER";
+            }
         }
     }
     
@@ -655,6 +655,9 @@ int main()
     bool gameOver = false;
     bool gameStarted = false;
     bool recordChecked = false; // Flag per controllare se il record è già stato verificato
+    // Gestione focus finestra e spike del delta-time dopo Alt-Tab
+    bool appHasFocus = true;
+    bool skipNextDt = false;
     // --- VARIABILI PER PAUSA DOPO MANGIATO FANTASMA (combo classica) ---
     bool isGhostEatPause = false;
     sf::Clock ghostEatPauseClock;
@@ -666,6 +669,8 @@ int main()
 
     while (window.isOpen()) {
         float dt = clock.restart().asSeconds();
+        if (skipNextDt) { dt = 0.f; skipNextDt = false; }
+        if (dt > 0.1f) dt = 0.1f; // Clamp per evitare salti enormi dopo il refocus
 
         // --- Gestione stati di gioco ---
         if (gameState == GameState::GAME_OVER) {
@@ -738,9 +743,10 @@ int main()
             
             window.display();
             
-            // Gestione input Game Over
-            auto event = window.waitEvent();
-            if (event && event->is<sf::Event::KeyPressed>()) {
+            // Gestione input Game Over (non bloccante)
+            while (auto event = window.pollEvent()) {
+                if (event->is<sf::Event::Closed>()) { window.close(); break; }
+                if (!event->is<sf::Event::KeyPressed>()) continue;
                 if (auto keyEvent = event->getIf<sf::Event::KeyPressed>()) {
                     if (keyEvent->code == sf::Keyboard::Key::Enter) {
                         sfxEatGhost.play(); // Suono di conferma restart
@@ -790,10 +796,6 @@ int main()
                         continue;
                     }
                 }
-            }
-            if (event && event->is<sf::Event::Closed>()) {
-                window.close();
-                break;
             }
             continue;
         }
@@ -867,9 +869,10 @@ int main()
             
             window.display();
             
-            // Gestione input menu
-            auto event = window.waitEvent();
-            if (event && event->is<sf::Event::KeyPressed>()) {
+            // Gestione input menu (non bloccante)
+            while (auto event = window.pollEvent()) {
+                if (event->is<sf::Event::Closed>()) { window.close(); break; }
+                if (!event->is<sf::Event::KeyPressed>()) continue;
                 if (auto keyEvent = event->getIf<sf::Event::KeyPressed>()) {
                     if (keyEvent->code == sf::Keyboard::Key::Up) {
                         if (menuSoundCooldown.getElapsedTime().asMilliseconds() > 100) {
@@ -926,13 +929,8 @@ int main()
                                 window.close();
                                 break;
                         }
-                        continue;
                     }
                 }
-            }
-            if (event && event->is<sf::Event::Closed>()) {
-                window.close();
-                break;
             }
             continue;
         }
@@ -946,9 +944,10 @@ int main()
             
             window.display();
             
-            // Gestione input schermata record
-            auto event = window.waitEvent();
-            if (event && event->is<sf::Event::KeyPressed>()) {
+            // Gestione input schermata record (non bloccante)
+            while (auto event = window.pollEvent()) {
+                if (event->is<sf::Event::Closed>()) { window.close(); break; }
+                if (!event->is<sf::Event::KeyPressed>()) continue;
                 if (auto keyEvent = event->getIf<sf::Event::KeyPressed>()) {
                     if (keyEvent->code == sf::Keyboard::Key::Escape) {
                         sfxEatGhost.play(); // Suono di ritorno al menu
@@ -961,13 +960,8 @@ int main()
                         sfxChomp.stop(); // Ferma completamente il chomp quando si torna al menu
                         chompSoundStarted = false; // Reset del flag
                         gameState = GameState::MENU;
-                        continue;
                     }
                 }
-            }
-            if (event && event->is<sf::Event::Closed>()) {
-                window.close();
-                break;
             }
             continue;
         }
@@ -984,9 +978,10 @@ int main()
             
             window.display();
             
-            // Gestione input leaderboard globale
-            auto event = window.waitEvent();
-            if (event && event->is<sf::Event::KeyPressed>()) {
+            // Gestione input leaderboard globale (non bloccante)
+            while (auto event = window.pollEvent()) {
+                if (event->is<sf::Event::Closed>()) { window.close(); break; }
+                if (!event->is<sf::Event::KeyPressed>()) continue;
                 if (auto keyEvent = event->getIf<sf::Event::KeyPressed>()) {
                     if (keyEvent->code == sf::Keyboard::Key::Escape) {
                         sfxEatGhost.play(); // Suono di ritorno al menu
@@ -1023,13 +1018,8 @@ int main()
                         continue;
                     } else if (keyEvent->code == sf::Keyboard::Key::End) {
                         globalLeaderboard->scrollToEnd(window.getSize());
-                        continue;
                     }
                 }
-            }
-            if (event && event->is<sf::Event::Closed>()) {
-                window.close();
-                break;
             }
             continue;
         }
@@ -1087,9 +1077,10 @@ int main()
             
             window.display();
             
-            // Gestione input menu pausa
-            auto event = window.waitEvent();
-            if (event && event->is<sf::Event::KeyPressed>()) {
+            // Gestione input menu pausa (non bloccante)
+            while (auto event = window.pollEvent()) {
+                if (event->is<sf::Event::Closed>()) { window.close(); break; }
+                if (!event->is<sf::Event::KeyPressed>()) continue;
                 if (auto keyEvent = event->getIf<sf::Event::KeyPressed>()) {
                     if (keyEvent->code == sf::Keyboard::Key::Up) {
                         if (menuSoundCooldown.getElapsedTime().asMilliseconds() > 100) {
@@ -1123,17 +1114,11 @@ int main()
                                 gameState = GameState::MENU;
                                 break;
                         }
-                        continue;
                     } else if (keyEvent->code == sf::Keyboard::Key::P) {
                         // Shortcut per riprendere con P
                         gameState = GameState::PLAYING;
-                        continue;
                     }
                 }
-            }
-            if (event && event->is<sf::Event::Closed>()) {
-                window.close();
-                break;
             }
             continue;
         }
@@ -1155,6 +1140,12 @@ int main()
         while (auto ev = window.pollEvent()) {
             if (ev->is<sf::Event::Closed>()) {
                 window.close();
+            } else if (ev->is<sf::Event::FocusLost>()) {
+                appHasFocus = false;
+            } else if (ev->is<sf::Event::FocusGained>()) {
+                appHasFocus = true;
+                skipNextDt = true;   // evita spike del primo frame al rientro
+                clock.restart();     // resetta il clock per sicurezza
             } else if (ev->is<sf::Event::KeyPressed>()) {
                 if (auto keyEvent = ev->getIf<sf::Event::KeyPressed>()) {
                     // Pausa durante il gameplay - SOLO se Pac-Man è davvero fermo
@@ -1181,6 +1172,10 @@ int main()
 
         // Solo se il gioco è in stato PLAYING, aggiorna la logica di gioco
         if (gameState == GameState::PLAYING && !gameOver) {
+            // Se la finestra non ha focus, non aggiornare la logica per evitare comportamenti strani
+            if (!appHasFocus) {
+                goto render_section;
+            }
             // Blocca movimento di Pac-Man e fantasmi finché la musica iniziale non è finita
             bool introMusicPlaying = (musicStarted && music.getStatus() == sf::Music::Status::Playing);
             

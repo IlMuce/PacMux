@@ -88,7 +88,7 @@ L’eseguibile verrà generato in `build/Release/Pacman.exe` e dovrà essere ese
 
 ## Come si gioca
 
-- **Freccia sinistra/destra/su/giù**: muovi Pac-Man lungo i corridoi a griglia.
+- **Freccia sinistra/destra/su/giù** o **W/A/S/D**: muovi Pac-Man lungo i corridoi a griglia.
 - Raccogli tutti i pellet per avanzare di livello.
 - **Evita i fantasmi**: Se un fantasma ti tocca, perdi una vita. Se perdi tutte le vite é game over.
 - Il punteggio aumenta di 10 punti per pellet, 200 punti per fantasma mangiato (con moltiplicatore).
@@ -177,9 +177,16 @@ L’eseguibile verrà generato in `build/Release/Pacman.exe` e dovrà essere ese
 - Aggiunta punteggio a vista e moltiplicatore quando Pacman mangia i fantasmini.
 - Corretti svariati bug legati a fanatsmi, stati di gioco e audio.
 
+## Funzionalità della Release 11
+- Classifica globale online (Top 50): a fine partita puoi caricare il punteggio e vederlo nella leaderboard dal menu.
+- Scorrimento e refresh: frecce/PgUp/PgDn/Home/End per scorrere, R per aggiornare.
+- Aggiornamenti rapidi e senza blocchi: upload/download asincroni.
+- Dati su GitHub in formato JSON, parser robusto e fallback offline.
+- Implementazione: HTTP con CPR; lettura via GitHub Raw; scrittura via GitHub Contents API (Base64 + SHA).
+
 ## Prossime Release (Roadmap)
 
-## Release da 11 in poi:
+## Release da 12 in poi:
 - Aggiunta frutta
 - Aggiunta livelli
 - Grafica migliorata
@@ -189,9 +196,6 @@ L’eseguibile verrà generato in `build/Release/Pacman.exe` e dovrà essere ese
 ## Bug Noti
 - Fantasmi si bloccano quando tentano di attraversare il teleport finché pacman non li fa entrare in modalitá frightened.
   Soluzione temporanea: divieto di attraversamento dei teleport ai fantasmi.
-- Pacman può uscire dalla mappa in determinate circostanze se si mette in pausa mentre é in movimento e si trova vicino ad un muro.
-  Soluzione temporanea: si può mettere in pausa solo se pacman é completamente fermo.
-- Se Pacman muore ed é toccato per piú frame da un fantasma possono esserci piú animazioni di morte.
 
 ---
 

@@ -80,7 +80,7 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
         if (m_respawnTimer >= m_respawnDuration) {
             std::cout << "[GHOST] Respawn timer done, ghost leaves house.\n";
             m_eaten = false;
-            m_speed = 90.f;
+            m_speed = m_normalSpeed;
             m_isFrightened = false;
             m_direction = {0, -1};
             m_hasLeftGhostHouse = false; // deve uscire di nuovo!
@@ -250,7 +250,7 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
         if (m_frightenedTimer >= m_frightenedDuration) {
             m_isFrightened = false;
             m_mode = Mode::Chase;
-            m_speed = 90.f; // restore normal speed
+            m_speed = m_normalSpeed; // restore normal speed
         }
     } else {
         // Reset animazione frightened se non più in frightened
@@ -307,7 +307,7 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
         if (m_respawnTimer >= m_respawnDuration) {
             std::cout << "[GHOST] Respawn timer done, ghost leaves house.\n";
             m_eaten = false;
-            m_speed = 90.f;
+            m_speed = m_normalSpeed;
             m_isFrightened = false;
             m_direction = {0, -1};
             m_hasLeftGhostHouse = false; // deve uscire di nuovo!
@@ -414,7 +414,7 @@ void Ghost::setFrightened(float duration) {
         m_frightenedTimer = 0.f;
         m_frightenedDuration = 0.f;
         m_mode = Mode::Chase;
-        m_speed = 90.f;
+    m_speed = m_normalSpeed;
         return;
     }
     m_isFrightened = true;
@@ -435,9 +435,9 @@ void Ghost::setEaten(bool eaten) {
         m_respawnTimer = 0.f;
         std::cout << "[GHOST] EATEN! Returning to ghost house as eyes.\n";
     } else {
-        m_eaten = false;
-        m_isReturningToHouse = false;
-        m_speed = 90.f;
+    m_eaten = false;
+    m_isReturningToHouse = false;
+    m_speed = m_normalSpeed;
         std::cout << "[GHOST] Respawned, back to normal.\n";
     }
 }

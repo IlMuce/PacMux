@@ -184,10 +184,28 @@ L’eseguibile verrà generato in `build/Release/Pacman.exe` e dovrà essere ese
 - Dati su GitHub in formato JSON, parser robusto e fallback offline.
 - Implementazione: HTTP con CPR; lettura via GitHub Raw; scrittura via GitHub Contents API (Base64 + SHA).
 
+## Funzionalità della Release 12
+- Cibo di gioco (4 tipi): Mela, Banana, Fungo, Uovo.
+  - Spawn casuale al raggiungimento di 30 e 70 pellet mangiati.
+  - Posizionamento su una posizione di pellet rimanenti per garantire visibilità e accessibilità.
+  - Niente duplicati: i due frutti del livello sono sempre di tipo diverso.
+  - Despawn automatico dopo 10 secondi se non raccolti.
+  - Punteggi e probabilità di comparsa:
+    - Mela: 100 pt — 40%
+    - Banana: 300 pt — 30%
+    - Fungo: 500 pt — 20%
+    - Uovo: 700 pt — 10%
+- Bilanciamento difficoltà dinamico per livello:
+  - Velocità dei fantasmi +20% a ogni aumento di difficoltà.
+  - Durata frightened −20% per livello (con minimo 1.5s).
+  - Ritardi di uscita dalla ghost house −20% per livello (minimo 0.5s).
+  - Tempo di attesa in ghost house dopo essere stati mangiati −20% per livello.
+- Pulizia sprite sheet:
+  - Eliminati i bordi neri laterali in ogni texture usata per evitare artefatti ai bordi durante il rendering.
+
 ## Prossime Release (Roadmap)
 
-## Release da 12 in poi:
-- Aggiunta frutta
+## Release da 13 in poi:
 - Aggiunta livelli
 - Grafica migliorata
 - Miglioramenti texture del labirinto
@@ -196,6 +214,7 @@ L’eseguibile verrà generato in `build/Release/Pacman.exe` e dovrà essere ese
 ## Bug Noti
 - Fantasmi si bloccano quando tentano di attraversare il teleport finché pacman non li fa entrare in modalitá frightened.
   Soluzione temporanea: divieto di attraversamento dei teleport ai fantasmi.
+- Problemi grafici con alcune gpu integrate AMD. 
 
 ---
 

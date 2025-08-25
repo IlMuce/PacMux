@@ -676,7 +676,7 @@ int main()
     const int NUM_PAUSE_OPTIONS = 2;
 
     // --- GESTIONE MULTI-LIVELLO ---
-    std::vector<std::string> mapFiles = {"map1.txt"};
+    std::vector<std::string> mapFiles = {"map1.txt", "map2.txt", "map3.txt"};
     int currentLevel = 0;
     bool allMapsCompleted = false;
     int difficultyLevel = 1;

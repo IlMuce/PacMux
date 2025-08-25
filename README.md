@@ -68,6 +68,8 @@ Inserimento nome
 3. Raccolta automatica dei pellet e incremento del punteggio a schermo.
 4. Finestra di gioco con framerate fisso a 60 FPS.
 5. Gestione asset (font e mappa) automatica: basta la cartella `assets` accanto all'eseguibile.
+    ![Registrazione 2025-08-26 014437](https://github.com/user-attachments/assets/9a201a10-7976-4266-a33b-def81d2dcd14)
+
 
 ## Funzionalità della Release 2
 

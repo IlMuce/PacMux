@@ -767,6 +767,8 @@ int main()
     // Gestione focus finestra e spike del delta-time dopo Alt-Tab
     bool appHasFocus = true;
     bool skipNextDt = false;
+    // Evita retrigger della morte su più frame/ghost durante la stessa sequenza
+    bool deathSequenceActive = false;
     // --- VARIABILI PER PAUSA DOPO MANGIATO FANTASMA (combo classica) ---
     bool isGhostEatPause = false;
     sf::Clock ghostEatPauseClock;
@@ -1754,8 +1756,8 @@ int main()
                 }
                 continue;
             }
-            // Collisione Pac-Man / Fantasmi
-            for (size_t i = 0; i < ghosts.size(); ++i)
+            // Collisione Pac-Man / Fantasmi (skippa se in sequenza di morte)
+            for (size_t i = 0; i < ghosts.size() && !deathSequenceActive; ++i)
             {
                 const auto &ghost = ghosts[i];
                 float dist = (pac.getPosition() - ghost->getPosition()).x * (pac.getPosition() - ghost->getPosition()).x +
@@ -1806,6 +1808,7 @@ int main()
                             sfxChomp.stop();
                             sfxChomp.setVolume(0.f);
                             sfxDeath.play();
+                            deathSequenceActive = true; // blocca ulteriori collisioni finché non gestita
                         }
                     }
                 }
@@ -1832,6 +1835,7 @@ int main()
                     sfxChomp.setVolume(0.f);
                     // Game Over - passa alla schermata Game Over
                     gameState = GameState::GAME_OVER;
+                    deathSequenceActive = false; // reset per prossima partita
                 }
                 else
                 {
@@ -1847,6 +1851,7 @@ int main()
                     sfxChomp.stop();
                     sfxChomp.setVolume(60.f); // Reset volume per il prossimo uso
                     gameOver = true;
+                    deathSequenceActive = false; // fine sequenza dopo gestione vita persa
                 }
             }
             // --- RESET COMBO SOLO SE NESSUN FANTASMA È FRIGHTENED ---

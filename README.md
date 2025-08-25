@@ -196,7 +196,6 @@ L’eseguibile verrà generato in `build/Release/Pacman.exe` e dovrà essere ese
 ## Bug Noti
 - Fantasmi si bloccano quando tentano di attraversare il teleport finché pacman non li fa entrare in modalitá frightened.
   Soluzione temporanea: divieto di attraversamento dei teleport ai fantasmi.
-- Se Pacman muore ed é toccato per piú frame da un fantasma possono esserci piú animazioni di morte.
 
 ---
 

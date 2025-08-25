@@ -5,10 +5,13 @@
 #include <vector>
 #include <memory>
 #include <string>
-#include <iostream> // Per il log di debug
-#include <cstdint>  // Per std::uint32_t
-#include <cctype>   // Per std::isalnum, std::toupper
-#include <random>   // Per RNG spawn frutti casuali
+#include <iostream>  // Per il log di debug
+#include <cstdint>   // Per std::uint32_t
+#include <cctype>    // Per std::isalnum, std::toupper
+#include <random>    // Per RNG spawn frutti casuali
+#include <optional>  // Per std::optional usato con pollEvent
+#include <algorithm> // Per std::find_if
+#include <cmath>     // Per std::pow, std::sin, std::abs
 
 #include "TileMap.hpp"
 #include "Player.hpp"
@@ -555,12 +558,7 @@ int main()
     bool ghostSoundPlaying = false;
     bool canPlayGhostSounds = false; // I fantasmi possono suonare solo dopo la musica di inizio
 
-    // Timer per gestire i diversi stati audio dei fantasmi
-    sf::Clock ghostModeTimer;
-
     // Sistema audio avanzato - tracciamento degli stati
-    static bool wasInGameOverState = false;
-    static bool wasInMenuState = true;
     sf::Clock menuSoundCooldown; // Previene spam di suoni nel menu
 
     // Timer per il suono chomp - VERSIONE CON CONTROLLO VOLUME
@@ -604,7 +602,7 @@ int main()
             {
                 superPelletPositions.emplace_back(pos);
             }
-            // NIENTE spawn da mappa: i frutti ora compaiono casualmente dopo 20 e 50 pellet mangiati
+            // NIENTE spawn da mappa: i frutti ora compaiono casualmente dopo 30 e 70 pellet mangiati
         }
     }
 
@@ -641,7 +639,6 @@ int main()
     const std::vector<float> scatterChaseTimes = {
         7.f, 20.f, 7.f, 20.f, 5.f, 20.f, 5.f, -1.f // tempi classici Pac-Man
     };
-    bool modeJustChanged = false;
 
     // --- GESTIONE STATI DI GIOCO ---
     enum class GameState
@@ -678,7 +675,6 @@ int main()
     // --- GESTIONE MULTI-LIVELLO ---
     std::vector<std::string> mapFiles = {"map1.txt", "map2.txt", "map3.txt"};
     int currentLevel = 0;
-    bool allMapsCompleted = false;
     int difficultyLevel = 1;
     float ghostBaseSpeed = 90.f;
     float frightenedBaseDuration = 6.0f;
@@ -712,16 +708,16 @@ int main()
                 }
             }
         }
-    // Reset pellet e super pellet solo se richiesto
+        // Reset pellet e super pellet solo se richiesto
         if (resetPellets)
         {
             pellets.clear();
             superPelletPositions.clear();
             fruits.clear();
-        // Reset contatori spawn frutti solo quando si rigenerano i pellet
-        pelletsEatenCount = 0;
-        fruit20Spawned = false;
-        fruit50Spawned = false;
+            // Reset contatori spawn frutti solo quando si rigenerano i pellet
+            pelletsEatenCount = 0;
+            fruit20Spawned = false;
+            fruit50Spawned = false;
             firstFruitTypeSet = false;
             for (unsigned y = 0; y < mapSz.y; ++y)
             {
@@ -740,7 +736,7 @@ int main()
                     {
                         superPelletPositions.emplace_back(pos);
                     }
-            // NIENTE spawn da mappa: i frutti ora compaiono casualmente dopo 20 e 50 pellet mangiati
+                    // NIENTE spawn da mappa: i frutti ora compaiono casualmente dopo 30 e 70 pellet mangiati
                 }
             }
         }
@@ -752,7 +748,6 @@ int main()
         ghosts.push_back(std::make_unique<Clyde>(ghostStartPos[3]));
         // Aggiorna velocità e frightened in base alla difficoltà
         float speed = ghostBaseSpeed;
-        float frightenedDuration = frightenedBaseDuration;
         for (auto &g : ghosts)
         {
             g->setSpeed(speed);
@@ -760,7 +755,7 @@ int main()
             g->setEaten(false);
             g->setReleased(false);
             // Imposta anche il tempo di attesa nella ghost house post-mangiata in base alla difficoltà
-            g->setRespawnDuration(std::max(0.5f, 3.0f * std::pow(0.8f, float(difficultyLevel - 1)))) ;
+            g->setRespawnDuration(std::max(0.5f, 3.0f * std::pow(0.8f, float(difficultyLevel - 1))));
         }
         // Reset ghost release state sequenziale
         nextGhostToRelease = 0;
@@ -1349,7 +1344,6 @@ int main()
         }
 
         // --- Modalità ghosts ---
-        modeJustChanged = false;
         // Riattiva il cambio automatico scatter/chase SOLO durante il gameplay
         if (gameState == GameState::PLAYING && modePhase < (int)scatterChaseTimes.size() && scatterChaseTimes[modePhase] > 0.f)
         {
@@ -1359,7 +1353,6 @@ int main()
                 modeTimer = 0.f;
                 modePhase++;
                 ghostMode = (ghostMode == GhostMode::Scatter) ? GhostMode::Chase : GhostMode::Scatter;
-                modeJustChanged = true;
                 // std::cout << "[DEBUG] Cambio modalità fantasmi: " << (ghostMode == GhostMode::Scatter ? "SCATTER" : "CHASE") << std::endl;
             }
         }
@@ -1535,7 +1528,7 @@ int main()
                 }
             }
 
-            // Aggiorna i fantasmi con la nuova architettura SOLO se la musica iniziale  e8 finita
+            // Aggiorna i fantasmi con la nuova architettura SOLO se la musica iniziale è finita
             for (size_t i = 0; i < ghosts.size(); ++i)
             {
                 Ghost::Mode m = (ghostMode == GhostMode::Scatter) ? Ghost::Mode::Scatter : Ghost::Mode::Chase;
@@ -1607,29 +1600,26 @@ int main()
             // Spawn frutti casuali al raggiungimento delle soglie (20 e 50)
             if (pelletEaten)
             {
-                auto spawnFruitAtRandomPellet = [&](Fruit::Type type) -> bool {
-                    if (pellets.empty()) return false;
+                auto spawnFruitAtRandomPellet = [&](Fruit::Type type) -> bool
+                {
+                    if (pellets.empty())
+                        return false;
                     std::uniform_int_distribution<size_t> dist(0, pellets.size() - 1);
                     const sf::Vector2f pos = pellets[dist(rng)].getPosition();
                     fruits.emplace_back(pos, type);
                     return true;
                 };
-
-                // Evita di spawnare due volte lo stesso tipo nello stesso livello
-                auto alreadySpawned = [&](Fruit::Type t){
-                    for (const auto &f : fruits) {
-                        (void)f; // non abbiamo un getter del tipo, quindi controlliamo solo prima dell'inserimento
-                    }
-                    return false;
-                };
-
                 // Selezione pesata tra 4 tipi: Cherry 40%, Strawberry 30%, Mushroom 20%, Egg 10%
-                auto pickTypeWeighted = [&](){
+                auto pickTypeWeighted = [&]()
+                {
                     std::uniform_int_distribution<int> d(1, 100);
                     int r = d(rng);
-                    if (r <= 40) return Fruit::Type::Cherry;
-                    if (r <= 70) return Fruit::Type::Strawberry;
-                    if (r <= 90) return Fruit::Type::Mushroom;
+                    if (r <= 40)
+                        return Fruit::Type::Cherry;
+                    if (r <= 70)
+                        return Fruit::Type::Strawberry;
+                    if (r <= 90)
+                        return Fruit::Type::Mushroom;
                     return Fruit::Type::Egg;
                 };
 
@@ -1650,7 +1640,11 @@ int main()
                     if (firstFruitTypeSet)
                     {
                         int guard = 0; // prevenzione loop infinito
-                        while (t == firstFruitType && guard < 10) { t = pickTypeWeighted(); ++guard; }
+                        while (t == firstFruitType && guard < 10)
+                        {
+                            t = pickTypeWeighted();
+                            ++guard;
+                        }
                     }
                     if (spawnFruitAtRandomPellet(t))
                         fruit50Spawned = true;
@@ -1772,7 +1766,8 @@ int main()
                         ghostReleaseDelays[i] = std::max<float>(minRelease, 3.f * std::pow(0.8f, float(difficultyLevel - 1)));
                     }
                     // Riduci anche il tempo di attesa in ghost house dopo essere stati mangiati del 20%
-                    for (auto &g : ghosts) {
+                    for (auto &g : ghosts)
+                    {
                         g->setRespawnDuration(std::max(0.5f, 3.0f * std::pow(0.8f, float(difficultyLevel - 1))));
                     }
                 }
@@ -1982,16 +1977,14 @@ int main()
                 }
             }
             // Avvia il gioco solo dopo la prima mossa di Pac-Man
-            if (!gameStarted && (
-                    sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::Left)  ||
-                    sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::Right) ||
-                    sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::Up)    ||
-                    sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::Down)  ||
-                    sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::W)     ||
-                    sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::A)     ||
-                    sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::S)     ||
-                    sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::D)
-                ))
+            if (!gameStarted && (sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::Left) ||
+                                 sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::Right) ||
+                                 sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::Up) ||
+                                 sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::Down) ||
+                                 sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::W) ||
+                                 sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::A) ||
+                                 sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::S) ||
+                                 sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::D)))
             {
                 gameStarted = true;
             }

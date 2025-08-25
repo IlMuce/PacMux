@@ -1,78 +1,11 @@
 # PacMux
 
-Questo repository contiene una versione base funzionante (MVP, Minimum Viable Product) di un clone di Pac-Man realizzato con SFML 3.0 e CMake.
-
-## Struttura del progetto
-
-```
-pacman-sfml/
-├── assets/            # Risorse di gioco (mappe, font, audio)
-│   ├── map1.txt       # Livello 1
-│   ├── map2.txt       # Livello 2
-│   ├── map3.txt       # Livello 3
-│   ├── pacman.ttf     # Font del gioco
-│   └── audio/         # Tutti i file audio sono ora qui!
-│       ├── pacman_beginning.wav      # Musica di sottofondo
-│       ├── PacmanChomp.mp3          # Suono "wakawakawaka"
-│       ├── pacman_chomp.wav         # Suono menu
-│       ├── pacman_eatghost.wav      # Suono mangiare fantasmi
-│       ├── pacman_death.wav         # Suono morte Pac-Man
-│       ├── pacman_menupausa.wav     # Suono menu/pausa
-│       ├── GhostTurntoBlue.mp3      # Suono fantasmi blu (Super Pellet)
-│       ├── GhostReturntoHome.mp3    # Suono ritorno fantasmi alla casa
-│       └── GhostNormalMove.mp3      # Suono movimento normale fantasmi
-├── include/           # Header C++ (tutti gli .hpp)
-│   ├── Blinky.hpp     # AI Blinky
-│   ├── Pinky.hpp      # AI Pinky
-│   ├── Inky.hpp       # AI Inky
-│   ├── Clyde.hpp      # AI Clyde
-│   ├── Ghost.hpp      # Base class Ghost
-│   ├── Player.hpp     # Pac-Man
-│   ├── TileMap.hpp    # Mappa
-│   ├── Pellet.hpp     # Pellet
-│   └── Score.hpp      # Punteggio
-├── src/               # Codice sorgente C++
-│   ├── main.cpp       # Punto d'ingresso e loop di gioco
-│   ├── Blinky.cpp     # AI Blinky
-│   ├── Pinky.cpp      # AI Pinky
-│   ├── Inky.cpp       # AI Inky
-│   ├── Clyde.cpp      # AI Clyde
-│   ├── Ghost.cpp      # Base class Ghost
-│   ├── Player.cpp     # Pac-Man
-│   ├── TileMap.cpp    # Mappa
-│   ├── Pellet.cpp     # Pellet
-│   └── Score.cpp      # Punteggio
-├── CMakeLists.txt     # Configurazione di build
-└── README.md          # Questo file
-```
-
-## Attenzione: file richiesti e posizione
-
-Tutti i file audio sono ora nella cartella `assets/audio/` e **non** più direttamente in `assets/`.
-
-**File audio richiesti in `assets/audio/`:**
-- pacman_beginning.wav
-- PacmanChomp.mp3
-- pacman_chomp.wav
-- pacman_eatghost.wav
-- pacman_death.wav
-- pacman_menupausa.wav
-- GhostTurntoBlue.mp3
-- GhostReturntoHome.mp3
-- GhostNormalMove.mp3
-
-**Se uno di questi file non è presente o è in una posizione diversa, il gioco non funzionerà correttamente!**
-
-**Altri file richiesti:**
-- `assets/pacman.ttf` (font)
-- `assets/map1.txt`, `assets/map2.txt`, `assets/map3.txt` (mappe)
-
-Se sposti o rinomini questi file, aggiorna anche i percorsi nel codice o ripristina la struttura sopra indicata.
+Questo repository contiene una versione base funzionante di un clone di Pac-Man realizzato con SFML 3.0 e CMake.
 
 ## Requisiti
 
-- Windows 10/11 (o Linux/macOS con SFML 3.0)
-- Visual Studio Build Tools 2022 / GCC o Clang
+- Windows 10/11
+- Visual Studio Build Tools 2022
 - SFML 3.0.0 installato e disponibile via CMake
 
 ## Come compilare
@@ -83,16 +16,50 @@ cd build
 cmake .. -G "Visual Studio 17 2022" -A x64
 cmake --build . --config Release
 ```
+L’eseguibile verrà generato in `build/Release/PacmanR12.exe` e dovrà essere eseguito da lì affinché trovi la cartella `assets` al suo fianco.
 
-L’eseguibile verrà generato in `build/Release/Pacman.exe` e dovrà essere eseguito dalla cartella `build/Release`, affinché trovi la cartella `assets` al suo fianco.
+Oppure da VS Code (Command Palette):
+- Ctrl+Shift+P → "CMake: Select a Kit" → scegli Visual Studio 2022 x64.
+- Ctrl+Shift+P → "CMake: Configure".
+- Barra di stato: seleziona Configurazione "Release".
+- Ctrl+Shift+P → "CMake: Build".
 
 ## Come si gioca
 
-- **Freccia sinistra/destra/su/giù** o **W/A/S/D**: muovi Pac-Man lungo i corridoi a griglia.
-- Raccogli tutti i pellet per avanzare di livello.
-- **Evita i fantasmi**: Se un fantasma ti tocca, perdi una vita. Se perdi tutte le vite é game over.
-- Il punteggio aumenta di 10 punti per pellet, 200 punti per fantasma mangiato (con moltiplicatore).
-- Usa i tunnel laterali per sfuggire ai fantasmi con il wrap-around.
+Obiettivo e punteggi
+- Mangia tutti i pellet per completare il livello.
+- I Super Pellet mettono i fantasmi in modalità frightened per un breve periodo: puoi mangiarli in combo da 200/400/800/1600 punti.
+- I frutti compaiono quando hai mangiato 30 e 70 pellet; rimangono per 10 secondi e danno punti bonus in base al tipo.
+- Vita extra a 10.000 punti.
+- Usa i tunnel laterali per sfruttare il wrap-around e seminare i fantasmi.
+
+Controlli durante il gioco
+- Movimento: Frecce o WASD
+- Pausa: P (il gioco si mette in pausa e puoi riprendere con P o dal menu pausa)
+
+Menu principale
+- Navigazione: Frecce Su/Giù
+- Seleziona voce: Invio
+
+Game Over
+- Riprova: Invio
+- Torna al menu: M oppure Esc
+- Vai ai record locali: H
+
+Schermata Record (Highscore)
+- Torna al menu: Esc
+
+Classifica Globale
+- Aggiorna: R
+- Scorri: Frecce Su/Giù (±1), Pag↑/Pag↓ (±5)
+- Inizio/Fine: Home/End
+- Torna al menu: Esc
+
+Inserimento nome
+- Digita lettere/numeri/"_"/"-" (max 10 caratteri)
+- Cancella: Backspace
+- Conferma: Invio
+
 
 ## Funzionalità della Release 1
 
@@ -215,6 +182,76 @@ L’eseguibile verrà generato in `build/Release/Pacman.exe` e dovrà essere ese
 - Fantasmi si bloccano quando tentano di attraversare il teleport finché pacman non li fa entrare in modalitá frightened.
   Soluzione temporanea: divieto di attraversamento dei teleport ai fantasmi.
 - Problemi grafici con alcune gpu integrate AMD. 
+
+## Struttura del progetto
+
+```
+pacman-sfml/
+├── assets/            # Risorse di gioco (mappe, font, sprite, audio)
+│   ├── map1.txt
+│   ├── map2.txt
+│   ├── map3.txt
+│   ├── pacman.ttf
+│   ├── pacman.png
+│   └── audio/
+│       ├── pacman_beginning.wav
+│       ├── PacmanChomp.mp3
+│       ├── pacman_chomp.wav
+│       ├── pacman_eatghost.wav
+│       ├── pacman_death.wav
+│       ├── pacman_menupausa.wav
+│       ├── GhostTurntoBlue.mp3
+│       ├── GhostReturntoHome.mp3
+│       └── GhostNormalMove.mp3
+├── include/           # Header C++
+│   ├── Blinky.hpp
+│   ├── Clyde.hpp
+│   ├── Fruit.hpp
+│   ├── Ghost.hpp
+│   ├── GlobalLeaderboard.hpp
+│   ├── HighScore.hpp
+│   ├── Inky.hpp
+│   ├── Pellet.hpp
+│   ├── Pinky.hpp
+│   ├── Player.hpp
+│   ├── Score.hpp
+│   └── TileMap.hpp
+├── src/               # Codice sorgente C++
+│   ├── Blinky.cpp
+│   ├── Clyde.cpp
+│   ├── Fruit.cpp
+│   ├── Ghost.cpp
+│   ├── GlobalLeaderboard.cpp
+│   ├── HighScore.cpp
+│   ├── Inky.cpp
+│   ├── main.cpp
+│   ├── Pellet.cpp
+│   ├── Pinky.cpp
+│   ├── Player.cpp
+│   ├── Score.cpp
+│   └── TileMap.cpp
+├── CMakeLists.txt     # Configurazione di build
+└── README.md
+```
+
+## Attenzione: file richiesti e posizione
+
+**File audio richiesti in `assets/audio/`:**
+- pacman_beginning.wav
+- PacmanChomp.mp3
+- pacman_chomp.wav
+- pacman_eatghost.wav
+- pacman_death.wav
+- pacman_menupausa.wav
+- GhostTurntoBlue.mp3
+- GhostReturntoHome.mp3
+- GhostNormalMove.mp3
+
+**Se uno di questi file non è presente o è in una posizione diversa, il gioco non funzionerà correttamente!**
+
+**Altri file richiesti:**
+- `assets/pacman.ttf` (font)
+- `assets/map1.txt`, `assets/map2.txt`, `assets/map3.txt` (mappe)
 
 ---
 

@@ -139,11 +139,16 @@ void Player::update(float dt, const TileMap& map, const sf::Vector2u& tileSize) 
 
     using Key = sf::Keyboard::Key;
 
-    // Leggi input direzionale
-    if      (sf::Keyboard::isKeyPressed(Key::Left))  m_nextDirection = {-1.f,  0.f};
-    else if (sf::Keyboard::isKeyPressed(Key::Right)) m_nextDirection = { 1.f,  0.f};
-    else if (sf::Keyboard::isKeyPressed(Key::Up))    m_nextDirection = { 0.f, -1.f};
-    else if (sf::Keyboard::isKeyPressed(Key::Down))  m_nextDirection = { 0.f,  1.f};
+    // Leggi input direzionale (Frecce o WASD)
+    bool left  = sf::Keyboard::isKeyPressed(Key::Left)  || sf::Keyboard::isKeyPressed(Key::A);
+    bool right = sf::Keyboard::isKeyPressed(Key::Right) || sf::Keyboard::isKeyPressed(Key::D);
+    bool up    = sf::Keyboard::isKeyPressed(Key::Up)    || sf::Keyboard::isKeyPressed(Key::W);
+    bool down  = sf::Keyboard::isKeyPressed(Key::Down)  || sf::Keyboard::isKeyPressed(Key::S);
+
+    if      (left)  m_nextDirection = {-1.f,  0.f};
+    else if (right) m_nextDirection = { 1.f,  0.f};
+    else if (up)    m_nextDirection = { 0.f, -1.f};
+    else if (down)  m_nextDirection = { 0.f,  1.f};
 
     sf::Vector2f pos = m_shape.getPosition();
     float r = m_shape.getRadius();

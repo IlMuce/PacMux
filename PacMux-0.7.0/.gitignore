@@ -1,0 +1,71 @@
+# ------------------------
+# Build directories
+# ------------------------
+# Build principale
+/build/
+
+# Build locali di ogni release
+/releases/*/build/
+
+# CMake-generated files in root
+/CMakeFiles/
+/CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# CMake-generated files in ogni release (se non ci sono build/ separati)
+/releases/*/CMakeFiles/
+/releases/*/CMakeCache.txt
+/releases/*/cmake_install.cmake
+/releases/*/Makefile
+/releases/*/compile_commands.json
+
+# ------------------------
+# Compiled object files & binaries
+# ------------------------
+*.o
+*.obj
+*.lo
+*.la
+*.al
+*.lai
+
+# Eseguibili e librerie
+*.exe
+*.out
+*.app
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+
+# ------------------------
+# IDE & Editor files
+# ------------------------
+# VSCode
+.vscode/
+
+# CLion, JetBrains
+.idea/
+*.iml
+
+# Sublime
+*.sublime-project
+*.sublime-workspace
+
+# Others
+*.swp
+*~
+
+# ------------------------
+# System files
+# ------------------------
+.DS_Store
+Thumbs.db
+
+# ------------------------
+# Logs
+# ------------------------
+*.log

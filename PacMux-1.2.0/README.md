@@ -2,32 +2,11 @@
 
 Questo repository contiene una versione base funzionante di un clone di Pac-Man realizzato con SFML 3.0 e CMake.
 
-## Questo branch (ConsegnaProgetto) e superbuild CMake
-
-Questo branch è dedicato esclusivamente alla consegna del progetto del corso di Fondamenti di Computer Grafica. Raccoglie TUTTE le release sviluppate (PacMux-0.1.0 → 1.2.0) in cartelle separate per mostrare l'evoluzione del lavoro.
-
-Il CMake di radice non compila un solo gioco, ma funge da superbuild che:
-- scarica e configura automaticamente SFML 3.0.0 tramite FetchContent (non serve installare SFML a parte);
-- configura/compila ogni cartella PacMux-<version> come progetto indipendente (niente conflitti di target);
-- lascia gli eseguibili dentro build/… con la cartella assets copiata accanto all'exe.
-
-Come compilare con il superbuild
-- Configurazione unica del workspace:
-    - cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-- Compilare tutte le release in una volta:
-    - cmake --build build --config Release --target ALL_BUILD -j 8
-- Compilare una singola release (esempi):
-    - cmake --build build --config Release --target PacMux_0_9_0
-    - cmake --build build --config Release --target PacMux_1_2_0
-
-Dove trovare gli eseguibili (Release)
-- build/PacMux-<versione>-build/Release/PacmanR<versione>.exe
-
 ## Requisiti
 
 - Windows 10/11
 - Visual Studio Build Tools 2022
-- SFML 3.0.0 (viene fetchata automaticamente dal CMake in questo branch; non è necessaria un'installazione manuale)
+- SFML 3.0.0 installato e disponibile via CMake
 
 ## Come compilare
 

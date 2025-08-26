@@ -60,7 +60,6 @@ Inserimento nome
 - Cancella: Backspace
 - Conferma: Invio
 
-
 ## Funzionalità della Release 1
 
 1. Lettura mappa da file ASCII (`assets/map1.txt`).
@@ -68,8 +67,8 @@ Inserimento nome
 3. Raccolta automatica dei pellet e incremento del punteggio a schermo.
 4. Finestra di gioco con framerate fisso a 60 FPS.
 5. Gestione asset (font e mappa) automatica: basta la cartella `assets` accanto all'eseguibile.
-    ![Registrazione 2025-08-26 014437](https://github.com/user-attachments/assets/9a201a10-7976-4266-a33b-def81d2dcd14)
-
+ 
+    ![output](https://github.com/user-attachments/assets/73a952b8-b8e3-45b0-867f-6b1cd62b1418)
 
 ## Funzionalità della Release 2
 
@@ -78,13 +77,20 @@ Inserimento nome
 - Possibilità di testare facilmente il wrap-around grazie a corridoi e tunnel dedicati.
 - Codice pronto per l'estensione con nuove feature (fantasmi, power-up, ecc.).
 
+    ![output](https://github.com/user-attachments/assets/bdbaf048-43ed-4df1-96fc-2cc385fbd6b3)
+
 ## Funzionalità della Release 3
 
 - Aggiunta dei fantasmi statici, posizionati nella ghost house centrale, ognuno con un colore diverso.
 - Gestione collisione tra Pac-Man e i fantasmi: se avviene, viene mostrato un messaggio di Game Over e la partita si resetta (Pac-Man torna allo spawn, punteggio e pellet vengono azzerati).
+
+    ![output1](https://github.com/user-attachments/assets/f2788ea2-e5e6-4750-bb9f-d4a722b0cff0)
+  
 - Gestione della vittoria: se tutti i pellet vengono raccolti, viene mostrato un messaggio di vittoria e la partita si resetta.
 - I pellet non vengono generati nella ghost house né nella cella di spawn di Pac-Man.
 - Tutte le transizioni avvengono senza chiudere la finestra di gioco.
+
+    ![output2](https://github.com/user-attachments/assets/7863630d-c67f-4165-add6-0d7051ad4c79)
 
 ## Funzionalità della Release 4
 
@@ -97,6 +103,8 @@ Inserimento nome
 - **AI fedele all'originale**: Blinky insegue Pac-Man, Pinky mira 4 celle avanti, entrambi con pathfinding greedy (distanza euclidea, tie-breaking Up>Left>Down>Right, no inversione immediata).
 - **Pronto per estensioni**: Struttura pronta per logiche uniche di Inky e Clyde, modalità frightened, animazioni, ecc.
 
+    ![output](https://github.com/user-attachments/assets/a40a07b6-cbf2-4b1e-b2a6-267aff7d239d)
+
 ### Funzionalità della Release 5
 - I fantasmi entrano in modalità frightened (blu, movimento casuale e rallentato) quando Pac-Man mangia un Super Pellet.
 - I fantasmi possono essere mangiati da Pac-Man in modalità frightened: diventano "occhi", tornano alla ghost house, attendono e poi respawnano normalmente.
@@ -105,14 +113,21 @@ Inserimento nome
 - Alternanza classica scatter/chase con timer configurabili e debug log dettagliato.
 - Reset completo degli stati dei fantasmi su game over o vittoria.
 
+    ![output](https://github.com/user-attachments/assets/f0772c55-40f5-4752-9252-bf1107a24173)
+
 ### Funzionalità della Release 6
 - Sistema multi-livello con caricamento dinamico
-- Implementato reset con aumento di difficoltá una volta finiti tutti i livelli a disposizione
 - Velocità variabili per Pac-Man e fantasmi
 - Nuova mappa basata su Ms. Pacman
+
+    ![output2](https://github.com/user-attachments/assets/5824a764-4568-4465-b211-ad4bacca37c8)
+
+- Implementato reset con aumento di difficoltá una volta finiti tutti i livelli a disposizione
 - Corrette tempistiche di uscita fantasmi dalla ghost house e diminuito scatter time
 - Aggiunte scritte di vittoria e sconfitta con grafica SFML al posto di console windows
 - Cambiato font principale 
+
+    ![output1](https://github.com/user-attachments/assets/5744841d-4a1a-40da-aea4-a8bc251b9b22)
 
 ### Funzionalità della Release 7
 - Gestione avanzata stati di gioco.
@@ -120,6 +135,8 @@ Inserimento nome
 - HUD completo con visualizzazione punteggio, vite rimaste e livello attuale.
 - Vita extra una volta raggiunti 10k punti.
 - Aggiunta possibilitá di compilazione con dll statici (non serve averli inclusi nel PATH di sistema).
+
+    ![output](https://github.com/user-attachments/assets/c11444c4-b509-42ef-a28d-0e3cfaf667fa)
 
 ### Funzionalità della Release 8
 - Integrazione con SFML audio.
@@ -136,8 +153,13 @@ Inserimento nome
 
 ### Funzionalità della Release 9
 - **Sistema Highscore completo**: Top 10 persistente con input nome giocatore e schermata Hall of Fame
+
+    ![output1](https://github.com/user-attachments/assets/4ca9445a-46a5-4d38-a022-7cc1ebda4f32)
+
 - **Mappa 3 con tema arancione**: Stile Ms. Pac-Man con colori arancione chiaro
 - **Bug fix critici**: Risolti chomp infinito, highscore dopo 7° record, parser JSON robusto
+
+    ![output2](https://github.com/user-attachments/assets/a49ae4c4-a41d-4b60-b6e2-51136e71c5e0)
 
 ## Funzionalità della Release 10
 - Aggiunte texture e animazioni per Pacman (movimento in ogni direzione e morte).
@@ -146,12 +168,16 @@ Inserimento nome
 - Aggiunta punteggio a vista e moltiplicatore quando Pacman mangia i fantasmini.
 - Corretti svariati bug legati a fantasmi, stati di gioco e audio.
 
+    ![output](https://github.com/user-attachments/assets/a0aa3e91-802a-4df3-9622-abc6cbecbcc6)
+
 ## Funzionalità della Release 11
 - Classifica globale online (Top 50): a fine partita puoi caricare il punteggio e vederlo nella leaderboard dal menu.
 - Scorrimento e refresh: frecce/PgUp/PgDn/Home/End per scorrere, R per aggiornare.
 - Aggiornamenti rapidi e senza blocchi: upload/download asincroni.
 - Dati su GitHub in formato JSON, parser robusto e fallback offline.
 - Implementazione: HTTP con CPR; lettura via GitHub Raw; scrittura via GitHub Contents API (Base64 + SHA).
+
+    ![output](https://github.com/user-attachments/assets/454bd35f-59a3-4d2c-88ad-615c1b1660b8)
 
 ## Funzionalità della Release 12
 - Cibo di gioco (4 tipi): Mela, Banana, Fungo, Uovo.
@@ -171,6 +197,8 @@ Inserimento nome
   - Tempo di attesa in ghost house dopo essere stati mangiati −20% per livello.
 - Pulizia sprite sheet:
   - Eliminati i bordi neri laterali in ogni texture usata per evitare artefatti ai bordi durante il rendering.
+
+    ![output](https://github.com/user-attachments/assets/12a54653-afa6-442a-93af-eb46e3b99d7d)
 
 ## Prossime Release (Roadmap)
 

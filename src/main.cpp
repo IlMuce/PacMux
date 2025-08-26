@@ -955,7 +955,7 @@ int main()
             sf::Font font(fontPath.string());
 
             // Titolo del gioco
-            sf::Text title(font, "PACMAN", 48);
+            sf::Text title(font, "PACMUX", 48);
             title.setFillColor(sf::Color::Yellow);
             title.setOutlineColor(sf::Color::Blue);
             title.setOutlineThickness(3);

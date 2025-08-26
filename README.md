@@ -144,7 +144,7 @@ Inserimento nome
 - Aggiunte texture e animazioni per tutti e 4 i Fantasmini (movimento, modalitá frightened e "occhi" una volta mangiati).
 - Modificati dimensione e colore di Pellet e Super Pellet per renderli piú simili all'originale.
 - Aggiunta punteggio a vista e moltiplicatore quando Pacman mangia i fantasmini.
-- Corretti svariati bug legati a fanatsmi, stati di gioco e audio.
+- Corretti svariati bug legati a fantasmi, stati di gioco e audio.
 
 ## Funzionalità della Release 11
 - Classifica globale online (Top 50): a fine partita puoi caricare il punteggio e vederlo nella leaderboard dal menu.

@@ -41,8 +41,10 @@ public:
     bool isEaten() const { return m_eaten; }
     bool isReturningToHouse() const { return m_isReturningToHouse; }
 
-    void setSpeed(float speed) { m_speed = speed; }
+    void setSpeed(float speed) { m_speed = speed; m_normalSpeed = speed; }
     void setReleaseDelay(float delay) { m_releaseDelay = delay; m_canLeaveHouse = false; }
+    // Imposta quanto tempo il fantasma resta nella ghost house dopo essere stato mangiato
+    void setRespawnDuration(float seconds) { m_respawnDuration = seconds; }
 
     // --- RELEASE STATE ---
     void setReleased(bool released) { 
@@ -86,6 +88,8 @@ protected:
     sf::Vector2f m_target;
     sf::Vector2f m_drawPos;
     float m_speed;
+    // Velocità "normale" da ripristinare dopo frightened/respawn
+    float m_normalSpeed = 90.f;
     Type m_type;
     Mode m_mode;
     bool m_hasLeftGhostHouse;

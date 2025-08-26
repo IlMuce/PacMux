@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(PacmanR10 LANGUAGES CXX)
+project(PacmanR12 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,6 +29,7 @@ add_executable(${PROJECT_NAME}
     src/TileMap.cpp
     src/Player.cpp
     src/Pellet.cpp
+    src/Fruit.cpp
     src/Score.cpp
     src/HighScore.cpp
     src/GlobalLeaderboard.cpp

@@ -1,6 +1,13 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
-#include <Windows.h> // Per gestione path e messaggi di errore
+#ifdef _WIN32
+#include <windows.h> // Per gestione path e messaggi di errore su Windows
+#else
+#include <unistd.h>
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
+#endif
 #include <filesystem>
 #include <vector>
 #include <memory>
@@ -24,6 +31,46 @@
 #include "Pinky.hpp"
 #include "Inky.hpp"
 #include "Clyde.hpp"
+
+// Helper cross-platform: directory dell'eseguibile e messaggi di errore
+namespace {
+    std::filesystem::path getExecutableDir() {
+#ifdef _WIN32
+        char buf[MAX_PATH];
+        DWORD len = GetModuleFileNameA(NULL, buf, MAX_PATH);
+        if (len == 0 || len == MAX_PATH) {
+            return std::filesystem::current_path();
+        }
+        return std::filesystem::path(buf).parent_path();
+#elif defined(__APPLE__)
+        uint32_t size = 0;
+        _NSGetExecutablePath(nullptr, &size);
+        std::string buf(size, '\0');
+        if (_NSGetExecutablePath(buf.data(), &size) == 0) {
+            return std::filesystem::path(buf.c_str()).parent_path();
+        }
+        return std::filesystem::current_path();
+#elif defined(__linux__)
+        char buf[4096];
+        ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+        if (len > 0) {
+            buf[len] = '\0';
+            return std::filesystem::path(buf).parent_path();
+        }
+        return std::filesystem::current_path();
+#else
+        return std::filesystem::current_path();
+#endif
+    }
+
+    inline void showErrorDialog(const std::string &title, const std::string &message) {
+#ifdef _WIN32
+        MessageBoxA(NULL, message.c_str(), title.c_str(), MB_OK | MB_ICONERROR);
+#else
+        std::cerr << "[" << title << "] " << message << std::endl;
+#endif
+    }
+}
 
 // Utility: mostra un messaggio grafico e attende INVIO (compatibile SFML 3)
 void showMessage(sf::RenderWindow &window, const std::string &message, const std::string &fontPath)
@@ -382,9 +429,7 @@ int main()
     namespace fs = std::filesystem;
 
     // Recupera la cartella dell'eseguibile e degli asset
-    char buf[MAX_PATH];
-    GetModuleFileNameA(NULL, buf, MAX_PATH);
-    fs::path exeDir = fs::path(buf).parent_path();
+    fs::path exeDir = getExecutableDir();
     fs::path assets = exeDir / "assets";
     fs::path mapPath = assets / "map1.txt";
     fs::path fontPath = assets / "pacman.ttf";
@@ -393,14 +438,12 @@ int main()
     // Verifica la presenza degli asset fondamentali
     if (!fs::exists(mapPath))
     {
-        MessageBoxA(NULL, ("Mappa non trovata:\n" + mapPath.string()).c_str(),
-                    "Errore Pacman", MB_OK | MB_ICONERROR);
+        showErrorDialog("Errore Pacman", "Mappa non trovata:\n" + mapPath.string());
         return EXIT_FAILURE;
     }
     if (!fs::exists(fontPath))
     {
-        MessageBoxA(NULL, ("Font non trovato:\n" + fontPath.string()).c_str(),
-                    "Errore Pacman", MB_OK | MB_ICONERROR);
+        showErrorDialog("Errore Pacman", "Font non trovato:\n" + fontPath.string());
         return EXIT_FAILURE;
     }
 
@@ -409,8 +452,7 @@ int main()
     TileMap map;
     if (!map.load(mapPath.string(), tileSize))
     {
-        MessageBoxA(NULL, ("Errore caricamento mappa:\n" + mapPath.string()).c_str(),
-                    "Errore Pacman", MB_OK | MB_ICONERROR);
+        showErrorDialog("Errore Pacman", "Errore caricamento mappa:\n" + mapPath.string());
         return EXIT_FAILURE;
     }
     auto mapSz = map.getSize();
@@ -473,7 +515,7 @@ int main()
     }
     catch (const std::exception &e)
     {
-        MessageBoxA(NULL, e.what(), "Errore Pacman", MB_OK | MB_ICONERROR);
+        showErrorDialog("Errore Pacman", e.what());
         return EXIT_FAILURE;
     }
 
@@ -691,7 +733,7 @@ int main()
         mapPath = assets / mapFiles[levelIdx];
         if (!map.load(mapPath.string(), tileSize))
         {
-            MessageBoxA(NULL, ("Mappa non trovata:\n" + mapPath.string()).c_str(), "Errore Pacman", MB_OK | MB_ICONERROR);
+            showErrorDialog("Errore Pacman", "Mappa non trovata:\n" + mapPath.string());
             exit(EXIT_FAILURE);
         }
         mapSz = map.getSize();

@@ -67,7 +67,8 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 )
 
 # Su Windows copia automaticamente anche le DLL dipendenti accanto all'exe
-if (WIN32)
+# Esegui solo per build condivise; con build statica la lista è vuota e il comando fallirebbe.
+if (WIN32 AND BUILD_SHARED_LIBS)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_RUNTIME_DLLS:${PROJECT_NAME}>

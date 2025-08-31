@@ -326,46 +326,46 @@ void Ghost::update(float dt, const TileMap& map, const sf::Vector2u& tileSize,
 // Sostituisci i valori con le coordinate reali della tua sprite sheet
 // Esempio: BLINKY_FRAMES[LEFT][0] = frame sinistra, animazione 1
 //          BLINKY_FRAMES[LEFT][1] = frame sinistra, animazione 2
-static const sf::IntRect BLINKY_FRAMES[4][2] = {
+const sf::IntRect BLINKY_FRAMES[4][2] = {
     { sf::IntRect(sf::Vector2i{100,566}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{117,566}, sf::Vector2i{16,16}) },   // SINISTRA
     { sf::IntRect(sf::Vector2i{134,566}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{151,566}, sf::Vector2i{16,16}) }, // SU
     { sf::IntRect(sf::Vector2i{168,566}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{185,566}, sf::Vector2i{16,16}) }, // DESTRA
     { sf::IntRect(sf::Vector2i{202,566}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{219,566}, sf::Vector2i{16,16}) }  // GIÙ
 };
-static const sf::IntRect PINKY_FRAMES[4][2] = {
+const sf::IntRect PINKY_FRAMES[4][2] = {
     { sf::IntRect(sf::Vector2i{100,583}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{117,583}, sf::Vector2i{16,16}) },
     { sf::IntRect(sf::Vector2i{134,583}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{151,583}, sf::Vector2i{16,16}) },
     { sf::IntRect(sf::Vector2i{168,583}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{185,583}, sf::Vector2i{16,16}) },
     { sf::IntRect(sf::Vector2i{202,583}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{219,583}, sf::Vector2i{16,16}) }
 };
-static const sf::IntRect INKY_FRAMES[4][2] = {
+const sf::IntRect INKY_FRAMES[4][2] = {
     { sf::IntRect(sf::Vector2i{100,600}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{117,600}, sf::Vector2i{16,16}) },
     { sf::IntRect(sf::Vector2i{134,600}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{151,600}, sf::Vector2i{16,16}) },
     { sf::IntRect(sf::Vector2i{168,600}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{185,600}, sf::Vector2i{16,16}) },
     { sf::IntRect(sf::Vector2i{202,600}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{219,600}, sf::Vector2i{16,16}) }
 };
-static const sf::IntRect CLYDE_FRAMES[4][2] = {
+const sf::IntRect CLYDE_FRAMES[4][2] = {
     { sf::IntRect(sf::Vector2i{100,617}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{117,617}, sf::Vector2i{16,16}) },
     { sf::IntRect(sf::Vector2i{134,617}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{151,617}, sf::Vector2i{16,16}) },
     { sf::IntRect(sf::Vector2i{168,617}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{185,617}, sf::Vector2i{16,16}) },
     { sf::IntRect(sf::Vector2i{202,617}, sf::Vector2i{16,16}), sf::IntRect(sf::Vector2i{219,617}, sf::Vector2i{16,16}) }
 };
-static const sf::IntRect FRIGHTENED_FRAMES[2] = {
+const sf::IntRect FRIGHTENED_FRAMES[2] = {
     sf::IntRect(sf::Vector2i{389,566}, sf::Vector2i{16,16}), // blu
     sf::IntRect(sf::Vector2i{406,566}, sf::Vector2i{16,16})  
 };
 // Nuovo: array per le texture bianche degli ultimi 2 secondi frightened
-static const sf::IntRect FRIGHTENED_WHITE_FRAMES[2] = {
+const sf::IntRect FRIGHTENED_WHITE_FRAMES[2] = {
     sf::IntRect(sf::Vector2i{390,746}, sf::Vector2i{16,16}), // bianco 1 (nuova texture, da sprite sheet)
     sf::IntRect(sf::Vector2i{406,746}, sf::Vector2i{16,16})  // bianco 2 (nuova texture, da sprite sheet)
 };
-static const sf::IntRect EYES_FRAMES[4] = {
+const sf::IntRect EYES_FRAMES[4] = {
     sf::IntRect(sf::Vector2i{389,583}, sf::Vector2i{16,16}), // sinistra
     sf::IntRect(sf::Vector2i{406,583}, sf::Vector2i{16,16}), // su
     sf::IntRect(sf::Vector2i{423,583}, sf::Vector2i{16,16}), // destra
     sf::IntRect(sf::Vector2i{440,583}, sf::Vector2i{16,16})  // giù
 };
-static constexpr float GHOST_ANIMATION_INTERVAL = 0.12f; // secondi tra un frame e l'altro
+const float GHOST_ANIMATION_INTERVAL = 0.12f; // secondi tra un frame e l'altro
 
 void Ghost::draw(sf::RenderTarget& target, sf::RenderStates states) const {
     states.transform *= getTransform();

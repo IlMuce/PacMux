@@ -13,6 +13,7 @@
 #include <memory>
 #include <string>
 #include <iostream>  // Per il log di debug
+#include <cstdlib>   // getenv, atoi
 #include <cstdint>   // Per std::uint32_t
 #include <cctype>    // Per std::isalnum, std::toupper
 #include <random>    // Per RNG spawn frutti casuali
@@ -526,6 +527,19 @@ int main()
         std::cerr << "[AUDIO] Errore caricamento musica di sottofondo!\n";
     }
     music.setLooping(false); // SFML 3: musica suona una volta sola
+    // Master volume globale (0-100), configurabile via env PACMUX_VOLUME
+    float masterVolume = 40.f;
+    if (const char* mv = std::getenv("PACMUX_VOLUME")) {
+        try {
+            int v = std::clamp(std::atoi(mv), 0, 100);
+            masterVolume = static_cast<float>(v);
+        } catch (...) {
+            // ignora parsing errors, usa default
+        }
+    }
+    // Imposta il volume globale per tutti i suoni/musiche e abbassa la musica
+    sf::Listener::setGlobalVolume(masterVolume);
+    music.setVolume(std::min(masterVolume * 0.8f, 100.0f));
     // NON avviare la musica qui - sarà avviata quando inizia il gameplay
 
     sf::SoundBuffer bufChomp, bufChompMenu, bufEatGhost, bufDeath, bufMenu, bufGhostBlue, bufGhostReturn, bufGhostNormal;
@@ -584,14 +598,14 @@ int main()
     sfxGhostReturn.setLooping(true); // Anche il suono di ritorno alla casa in loop
 
     // === CONTROLLO VOLUME AUDIO ===
-    sfxChomp.setVolume(45.f);       // Riduci volume chomp (0-100)
-    sfxChompMenu.setVolume(35.f);   // Volume per navigazione menu
-    sfxGhostNormal.setVolume(15.f); // Volume molto ridotto fantasmi
-    sfxGhostReturn.setVolume(20.f); // Volume ridotto per ritorno
-    sfxGhostBlue.setVolume(65.f);   // Volume normale per effetti speciali
-    sfxEatGhost.setVolume(70.f);
-    sfxDeath.setVolume(75.f);
-    sfxMenu.setVolume(55.f); // Volume musica di sottofondo
+    sfxChomp.setVolume(35.f);       // Riduci volume chomp (0-100)
+    sfxChompMenu.setVolume(30.f);   // Volume per navigazione menu
+    sfxGhostNormal.setVolume(12.f); // Volume molto ridotto fantasmi
+    sfxGhostReturn.setVolume(18.f); // Volume ridotto per ritorno
+    sfxGhostBlue.setVolume(55.f);   // Volume per effetti speciali
+    sfxEatGhost.setVolume(55.f);
+    sfxDeath.setVolume(55.f);
+    sfxMenu.setVolume(40.f); // Volume suono menu
 
     // Flag per controllare se la musica è già stata avviata
     bool musicStarted = false;
@@ -950,7 +964,7 @@ int main()
                         chompActive = false;
                         chompSoundStarted = false;
                         sfxChomp.stop();
-                        sfxChomp.setVolume(60.f); // Reset volume per il prossimo uso
+                        sfxChomp.setVolume(35.f); // Reset volume per il prossimo uso
                         sfxGhostNormal.stop();
                         sfxGhostReturn.stop();
 
@@ -1725,14 +1739,14 @@ int main()
                 {
                     chompSoundStarted = true;
                     sfxChomp.stop(); // Forza il reset
-                    sfxChomp.setVolume(60.f);
+                    sfxChomp.setVolume(35.f);
                     sfxChomp.play(); // Inizia il loop continuo una volta sola
                 }
                 // Rendi il chomp udibile
                 if (!chompActive)
                 {
                     chompActive = true;
-                    sfxChomp.setVolume(60.f); // Volume normale quando si mangiano pellet
+                    sfxChomp.setVolume(35.f); // Volume normale quando si mangiano pellet
                 }
                 lastPelletTimer.restart(); // Reset timer quando si mangia un pellet
             }
@@ -1985,7 +1999,7 @@ int main()
                     chompActive = false;
                     chompSoundStarted = false;
                     sfxChomp.stop();
-                    sfxChomp.setVolume(60.f); // Reset volume per il prossimo uso
+                    sfxChomp.setVolume(35.f); // Reset volume per il prossimo uso
                     gameOver = true;
                     deathSequenceActive = false; // fine sequenza dopo gestione vita persa
                 }

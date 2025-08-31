@@ -28,6 +28,7 @@ else()
     # Su MSVC lasciare OFF: verrà buildata la dipendenza curl tramite FetchContent
     set(CPR_USE_SYSTEM_CURL OFF CACHE BOOL "Use system-provided libcurl with cpr" FORCE)
 endif()
+
 FetchContent_Declare(cpr GIT_REPOSITORY https://github.com/libcpr/cpr.git
                          GIT_TAG 3b15fa82ea74739b574d705fea44959b58142eb8) # Versione 1.10.x
 FetchContent_MakeAvailable(cpr)
@@ -75,34 +76,6 @@ if (WIN32 AND BUILD_SHARED_LIBS)
             $<TARGET_FILE_DIR:${PROJECT_NAME}>
         COMMAND_EXPAND_LISTS
     )
-endif()
-
-# Su MinGW/Clang con CPR che usa libcurl di sistema, libcurl dipende da OpenSSL e librerie HTTP/3 (ngtcp2/nghttp3).
-# Copiamo le relative DLL MSYS2 accanto all'eseguibile per evitare mismatch di versione caricati da PATH.
-if (MINGW)
-    set(MSYS2_CLANG64_BIN "C:/msys64/clang64/bin")
-
-    # Raccogli dinamicamente le DLL con versioni variabili
-    file(GLOB _OPENSSL_DLLS
-        "${MSYS2_CLANG64_BIN}/libssl-*.dll"
-        "${MSYS2_CLANG64_BIN}/libcrypto-*.dll"
-    )
-    file(GLOB _NGTCP2_DLLS
-        "${MSYS2_CLANG64_BIN}/libngtcp2-*.dll"
-        "${MSYS2_CLANG64_BIN}/libngtcp2_crypto_ossl-*.dll"
-    )
-    file(GLOB _NGHTTP3_DLLS
-        "${MSYS2_CLANG64_BIN}/libnghttp3-*.dll"
-    )
-
-    if (_OPENSSL_DLLS OR _NGTCP2_DLLS OR _NGHTTP3_DLLS)
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                ${_OPENSSL_DLLS} ${_NGTCP2_DLLS} ${_NGHTTP3_DLLS}
-                $<TARGET_FILE_DIR:${PROJECT_NAME}>
-            COMMAND_EXPAND_LISTS
-        )
-    endif()
 endif()
 
 # Hide console window on Windows; set bundle on macOS for a proper app

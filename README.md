@@ -285,4 +285,24 @@ pacman-sfml/
 
 ---
 
+## Note TLS su Windows (leaderboard)
+
+Se la classifica globale non si carica su Windows con errori TLS e stai usando la build MinGW (OpenSSL), puoi sbloccare rapidamente l’online disattivando la verifica SSL a runtime:
+
+```powershell
+$env:PACMUX_INSECURE_SSL=1; .\PacmanR12.exe
+```
+
+Vedrai nel log: “PACMUX_INSECURE_SSL=1 -> SSL verification disabled”.
+
+Alternativa più sicura (mantiene la verifica): scarica un file CA bundle (cacert.pem) e indica il percorso con la variabile d’ambiente prima di avviare il gioco:
+
+```powershell
+Remove-Item Env:PACMUX_INSECURE_SSL -ErrorAction SilentlyContinue
+$env:SSL_CERT_FILE="$PWD\cacert.pem"; .\PacmanR12.exe
+```
+
+Per un fix definitivo, puoi ricostruire libcurl con backend Schannel (MSVC), che usa lo store certificati di Windows e non richiede CA bundle.
+---
+
 Buon divertimento!

@@ -1,4 +1,7 @@
 # PacMux
+[![CI](https://github.com/IlMuce/PacMux/actions/workflows/ci.yml/badge.svg)](https://github.com/IlMuce/PacMux/actions/workflows/ci.yml)
+![Repo Size](https://img.shields.io/github/repo-size/IlMuce/PacMux)
+[![SFML](https://img.shields.io/badge/SFML-3.0.1-green?logo=sfml)](https://www.sfml-dev.org/)
 
 Questo repository contiene una versione base funzionante di un clone di Pac-Man realizzato con SFML 3.0 e CMake.
 
@@ -7,7 +10,7 @@ Questo repository contiene una versione base funzionante di un clone di Pac-Man 
 Questo branch è dedicato esclusivamente alla consegna del progetto del corso di Fondamenti di Computer Grafica. Raccoglie TUTTE le release sviluppate (PacMux-0.1.0 → 1.2.0) in cartelle separate per mostrare l'evoluzione del lavoro.
 
 Il CMake di radice non compila un solo gioco, ma funge da superbuild che:
-- scarica e configura automaticamente SFML 3.0.0 tramite FetchContent (non serve installare SFML a parte);
+- scarica e configura automaticamente SFML 3.0.1 tramite FetchContent (non serve installare SFML a parte);
 - configura/compila ogni cartella PacMux-<version> come progetto indipendente (niente conflitti di target);
 - lascia gli eseguibili dentro build/… con la cartella assets copiata accanto all'exe.
 

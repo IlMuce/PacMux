@@ -186,6 +186,134 @@ jobs:
               if kill -0 $pid 2>/dev/null; then kill $pid; exit 0; else echo "Exited too early"; exit 1; fi ); \
           fi
 
+      - name: Smoke run ALL versions (Linux, 5s each)
+        id: smoke_all_linux
+        continue-on-error: true
+        if: runner.os == 'Linux'
+        run: |
+          set -e
+          versions=("0.1.0" "0.2.0" "0.3.0" "0.4.0" "0.5.0" "0.6.0" "0.7.0" "0.8.0" "0.9.0" "1.0.0" "1.1.0" "1.2.0")
+          fail=0
+          for v in "${versions[@]}"; do
+            case "$v" in
+              "0.1.0") exe=PacmanR1;;
+              "0.2.0") exe=PacmanR2;;
+              "0.3.0") exe=PacmanR2;;
+              "0.4.0") exe=PacmanR4;;
+              "0.5.0") exe=PacmanR5;;
+              "0.6.0") exe=PacmanR6;;
+              "0.7.0") exe=PacmanR7;;
+              "0.8.0") exe=PacmanR8;;
+              "0.9.0") exe=PacmanR9;;
+              "1.0.0") exe=PacmanR10;;
+              "1.1.0") exe=PacmanR10;;
+              "1.2.0") exe=PacmanR12;;
+            esac
+            dir="build/PacMux-$v-build"
+            if [ -f "$dir/$exe" ]; then
+              mkdir -p "$dir/assets"
+              cp -r "PacMux-$v/assets"/* "$dir/assets/" 2>/dev/null || true
+              pushd "$dir" >/dev/null
+              xvfb-run -a bash -lc "timeout 5s ./$exe"; rc=$?
+              popd >/dev/null
+              if [ $rc -eq 124 ]; then
+                echo "OK: $v running for 5s"
+              else
+                echo "FAIL: $v exited early (rc=$rc)"
+                fail=1
+              fi
+            else
+              echo "SKIP: $v executable not found ($dir/$exe)"
+            fi
+          done
+          if [ $fail -ne 0 ]; then exit 1; fi
+
+      - name: Smoke run ALL versions (Windows, 5s each)
+        id: smoke_all_windows
+        continue-on-error: true
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $versions = @('0.1.0','0.2.0','0.3.0','0.4.0','0.5.0','0.6.0','0.7.0','0.8.0','0.9.0','1.0.0','1.1.0','1.2.0')
+          $fail = 0
+          foreach ($v in $versions) {
+            switch ($v) {
+              '0.1.0' { $exe = 'PacmanR1' }
+              '0.2.0' { $exe = 'PacmanR2' }
+              '0.3.0' { $exe = 'PacmanR2' }
+              '0.4.0' { $exe = 'PacmanR4' }
+              '0.5.0' { $exe = 'PacmanR5' }
+              '0.6.0' { $exe = 'PacmanR6' }
+              '0.7.0' { $exe = 'PacmanR7' }
+              '0.8.0' { $exe = 'PacmanR8' }
+              '0.9.0' { $exe = 'PacmanR9' }
+              '1.0.0' { $exe = 'PacmanR10' }
+              '1.1.0' { $exe = 'PacmanR10' }
+              '1.2.0' { $exe = 'PacmanR12' }
+            }
+            $dir = "build/PacMux-$v-build/Release"
+            $exePath = Join-Path $dir ("$exe.exe")
+            if (Test-Path $exePath) {
+              New-Item -ItemType Directory -Force -Path (Join-Path $dir 'assets') | Out-Null
+              Copy-Item -Recurse -Force (Join-Path "PacMux-$v/assets" '*') (Join-Path $dir 'assets')
+              $p = Start-Process -FilePath $exePath -PassThru
+              Wait-Process -Id $p.Id -Timeout 5 -ErrorAction SilentlyContinue
+              if ($p.HasExited) {
+                Write-Host "FAIL: $v exited early (ExitCode=$($p.ExitCode))"
+                $fail = 1
+              } else {
+                Stop-Process -Id $p.Id -Force
+                Write-Host "OK: $v running for 5s"
+              }
+            } else {
+              Write-Host "SKIP: $v executable not found ($exePath)"
+            }
+          }
+          if ($fail -ne 0) { exit 1 }
+
+      - name: Smoke run ALL versions (macOS, 5s each)
+        id: smoke_all_macos
+        continue-on-error: true
+        if: runner.os == 'macOS'
+        run: |
+          set -e
+          versions=("0.1.0" "0.2.0" "0.3.0" "0.4.0" "0.5.0" "0.6.0" "0.7.0" "0.8.0" "0.9.0" "1.0.0" "1.1.0" "1.2.0")
+          fail=0
+          for v in "${versions[@]}"; do
+            case "$v" in
+              "0.1.0") exe=PacmanR1;;
+              "0.2.0") exe=PacmanR2;;
+              "0.3.0") exe=PacmanR2;;
+              "0.4.0") exe=PacmanR4;;
+              "0.5.0") exe=PacmanR5;;
+              "0.6.0") exe=PacmanR6;;
+              "0.7.0") exe=PacmanR7;;
+              "0.8.0") exe=PacmanR8;;
+              "0.9.0") exe=PacmanR9;;
+              "1.0.0") exe=PacmanR10;;
+              "1.1.0") exe=PacmanR10;;
+              "1.2.0") exe=PacmanR12;;
+            esac
+            dir="build/PacMux-$v-build"
+            if [ -f "$dir/$exe" ]; then
+              mkdir -p "$dir/assets"
+              cp -r "PacMux-$v/assets"/* "$dir/assets/" 2>/dev/null || true
+              pushd "$dir" >/dev/null
+              ( ./$exe & pid=$!; sleep 5; if kill -0 $pid 2>/dev/null; then kill $pid; rc=124; else rc=0; fi )
+              popd >/dev/null
+              if [ $rc -eq 124 ]; then
+                echo "OK: $v running for 5s"
+              else
+                echo "FAIL: $v exited early (rc=$rc)"
+                fail=1
+              fi
+            else
+              echo "SKIP: $v executable not found ($dir/$exe)"
+            fi
+          done
+          if [ $fail -ne 0 ]; then exit 1; fi
+
       - name: Gate (fail job if any build/smoke failed)
         if: always()
         run: |
@@ -209,15 +337,15 @@ jobs:
           # Check smoke outcome for this OS
           if [ "${{ runner.os }}" = "Linux" ]; then
             if [ "${{ steps.smoke_linux.outcome }}" != "success" ]; then fail=1; fi
-            if [ "${{ steps.smoke_linux_0_1_0.outcome }}" != "success" ]; then fail=1; fi
+            if [ "${{ steps.smoke_all_linux.outcome }}" != "success" ]; then fail=1; fi
           fi
           if [ "${{ runner.os }}" = "Windows" ]; then
             if [ "${{ steps.smoke_windows.outcome }}" != "success" ]; then fail=1; fi
-            if [ "${{ steps.smoke_windows_0_1_0.outcome }}" != "success" ]; then fail=1; fi
+            if [ "${{ steps.smoke_all_windows.outcome }}" != "success" ]; then fail=1; fi
           fi
           if [ "${{ runner.os }}" = "macOS" ]; then
             if [ "${{ steps.smoke_macos.outcome }}" != "success" ]; then fail=1; fi
-            if [ "${{ steps.smoke_macos_0_1_0.outcome }}" != "success" ]; then fail=1; fi
+            if [ "${{ steps.smoke_all_macos.outcome }}" != "success" ]; then fail=1; fi
           fi
           if [ $fail -ne 0 ]; then echo "Some builds or smoke run failed"; exit 1; fi
 
@@ -242,4 +370,19 @@ jobs:
             echo "| 1.0.0 | ${{ steps.build_1_0_0.outcome }} |";
             echo "| 1.1.0 | ${{ steps.build_1_1_0.outcome }} |";
             echo "| 1.2.0 | ${{ steps.build_1_2_0.outcome }} |";
+            echo "";
+            echo "## Smoke (runner corrente)";
+            echo "OS: ${{ matrix.platform.name }}";
+            if [ "${{ runner.os }}" = "Linux" ]; then
+              echo "- 1.2.0: ${{ steps.smoke_linux.outcome }}";
+              echo "- Tutte le versioni: ${{ steps.smoke_all_linux.outcome }}";
+            fi
+            if [ "${{ runner.os }}" = "Windows" ]; then
+              echo "- 1.2.0: ${{ steps.smoke_windows.outcome }}";
+              echo "- Tutte le versioni: ${{ steps.smoke_all_windows.outcome }}";
+            fi
+            if [ "${{ runner.os }}" = "macOS" ]; then
+              echo "- 1.2.0: ${{ steps.smoke_macos.outcome }}";
+              echo "- Tutte le versioni: ${{ steps.smoke_all_macos.outcome }}";
+            fi
           } >> "$GITHUB_STEP_SUMMARY"

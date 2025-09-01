@@ -214,7 +214,10 @@ jobs:
               mkdir -p "$dir/assets"
               cp -r "PacMux-$v/assets"/* "$dir/assets/" 2>/dev/null || true
               pushd "$dir" >/dev/null
-              xvfb-run -a bash -lc "timeout 5s ./$exe"; rc=$?
+              set +e
+              xvfb-run -a -s "-screen 0 1024x768x24" bash -lc "timeout 5s ./$exe"
+              rc=$?
+              set -e
               popd >/dev/null
               if [ $rc -eq 124 ]; then
                 echo "OK: $v running for 5s"
@@ -300,7 +303,10 @@ jobs:
               mkdir -p "$dir/assets"
               cp -r "PacMux-$v/assets"/* "$dir/assets/" 2>/dev/null || true
               pushd "$dir" >/dev/null
-              ( ./$exe & pid=$!; sleep 5; if kill -0 $pid 2>/dev/null; then kill $pid; rc=124; else rc=0; fi )
+              set +e
+              ( ./$exe & pid=$!; sleep 5; if kill -0 $pid 2>/dev/null; then kill $pid; exit 124; else exit 0; fi )
+              rc=$?
+              set -e
               popd >/dev/null
               if [ $rc -eq 124 ]; then
                 echo "OK: $v running for 5s"

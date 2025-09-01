@@ -9,15 +9,33 @@ set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
 # Non forzare BUILD_SHARED_LIBS a livello globale; lascia ai subprogetti o alla toolchain
 
-# Porta SFML via FetchContent (usato da TUTTE le release)
-include(FetchContent)
-FetchContent_Declare(SFML
+# Prepara SFML come ExternalProject e installalo in un prefix locale
+include(ExternalProject)
+
+# Determina shared/static per SFML in base a BUILD_SHARED_LIBS della superbuild
+if (DEFINED BUILD_SHARED_LIBS)
+    if (BUILD_SHARED_LIBS)
+        set(_sfml_build_shared ON)
+    else()
+        set(_sfml_build_shared OFF)
+    endif()
+else()
+    set(_sfml_build_shared ON)
+endif()
+
+set(SFML_INSTALL_DIR ${CMAKE_BINARY_DIR}/_sfml_install)
+
+ExternalProject_Add(SFML_ext
     GIT_REPOSITORY https://github.com/SFML/SFML.git
     GIT_TAG 3.0.1
+    PREFIX ${CMAKE_BINARY_DIR}/_deps/sfml
+    CMAKE_ARGS
+        -DCMAKE_INSTALL_PREFIX=${SFML_INSTALL_DIR}
+        -DCMAKE_CXX_STANDARD=20
+        -DCMAKE_CXX_STANDARD_REQUIRED=ON
+        -DBUILD_SHARED_LIBS=${_sfml_build_shared}
+    INSTALL_DIR ${SFML_INSTALL_DIR}
 )
-FetchContent_MakeAvailable(SFML)
-
-include(ExternalProject)
 
 function(add_release name dir)
     # Raccogli argomenti comuni da propagare ai subprogetti
@@ -54,9 +72,10 @@ function(add_release name dir)
             -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON
             ${_extra_args}
         CMAKE_CACHE_ARGS
-            -DSFML_DIR:PATH=${sfml_BINARY_DIR}
+            -DSFML_DIR:PATH=${SFML_INSTALL_DIR}/lib/cmake/SFML
             -DBUILD_SHARED_LIBS:BOOL=${_build_shared_val}
             -DSFML_STATIC_LIBRARIES:BOOL=${_sfml_static_val}
+        DEPENDS SFML_ext
         INSTALL_COMMAND ""
     )
 endfunction()

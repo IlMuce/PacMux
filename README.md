@@ -15,25 +15,62 @@ Il CMake di radice non compila un solo gioco, ma funge da superbuild che:
 - lascia gli eseguibili dentro build/… con la cartella assets copiata accanto all'exe.
 
 Come compilare con il superbuild (multi‑compilatore)
+
 - Configurazione del workspace (scegli in base a OS/compilatore):
-        - Windows (MSVC/Visual Studio):
-            - cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-        - Windows (ClangCL con VS):
-            - cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -T ClangCL
-        - Linux (GCC):
-            - cmake -S . -B build -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release
-        - Linux (Clang):
-            - cmake -S . -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release
-        - macOS (AppleClang di Xcode):
-            - cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+    Windows (MSVC/Visual Studio)
+    ```powershell
+    cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+    ```
+
+    Windows (ClangCL con VS)
+    ```powershell
+    cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -T ClangCL
+    ```
+
+    Linux (GCC)
+    ```bash
+    cmake -S . -B build -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release
+    ```
+
+    Linux (Clang)
+    ```bash
+    cmake -S . -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release
+    ```
+
+    macOS (AppleClang di Xcode)
+    ```bash
+    cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+    ```
+
 - Compilare tutte le release in una volta:
-        - Generatore multi‑config (Visual Studio/Xcode):
-            - cmake --build build --config Release --target ALL_BUILD -j 8
-        - Generatore single‑config (Ninja/Unix Makefiles):
-            - cmake --build build -j 8
+
+    Generatore multi‑config (Visual Studio/Xcode)
+    ```powershell
+    cmake --build build --config Release --target ALL_BUILD
+    ```
+
+    Generatore single‑config (Ninja/Unix Makefiles)
+    ```bash
+    cmake --build build
+    ```
+
+    Nota: se vuoi velocizzare la compilazione puoi aggiungere il parallelismo, ad esempio:
+    `--parallel` oppure `-j 8`.
+
 - Compilare una singola release (esempi):
-        - cmake --build build --config Release --target PacMux_0_9_0
-        - cmake --build build --config Release --target PacMux_1_2_0
+
+    Visual Studio/Xcode (multi‑config)
+    ```powershell
+    cmake --build build --config Release --target PacMux_0_9_0
+    cmake --build build --config Release --target PacMux_1_2_0
+    ```
+
+    Ninja/Unix Makefiles (single‑config)
+    ```bash
+    cmake --build build --target PacMux_0_9_0 -j
+    cmake --build build --target PacMux_1_2_0 -j
+    ```
 
 Dove trovare gli eseguibili (Release)
 - build/PacMux-<versione>-build/[Release|]/PacmanR<NN>

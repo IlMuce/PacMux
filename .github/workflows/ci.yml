@@ -20,6 +20,7 @@ jobs:
       matrix:
         platform:
         - { name: Windows VS2022, os: windows-2022 }
+        - { name: Windows VS2025, os: windows-2025 }
         - { name: Linux GCC,      os: ubuntu-latest }
         - { name: Linux Clang,    os: ubuntu-latest, flags: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ }
         - { name: macOS,          os: macos-14 }
@@ -41,10 +42,107 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Configure superbuild
-        run: cmake -B build ${{ matrix.platform.flags }} ${{ matrix.config.flags }}
+        run: |
+          echo "::group::Configure superbuild"
+          cmake -B build ${{ matrix.platform.flags }} ${{ matrix.config.flags }}
+          echo "::endgroup::"
 
-      - name: Build all releases
-        run: cmake --build build --config Release --parallel
+      # Build each release as a separate step for clear PASS/FAIL and compact logs
+      - name: Build PacMux-0.1.0
+        id: build_0_1_0
+        continue-on-error: true
+        run: |
+          echo "::group::Build PacMux-0.1.0"
+          cmake --build build --config Release --parallel --target PacMux_0_1_0
+          echo "::endgroup::"
+
+      - name: Build PacMux-0.2.0
+        id: build_0_2_0
+        continue-on-error: true
+        run: |
+          echo "::group::Build PacMux-0.2.0"
+          cmake --build build --config Release --parallel --target PacMux_0_2_0
+          echo "::endgroup::"
+
+      - name: Build PacMux-0.3.0
+        id: build_0_3_0
+        continue-on-error: true
+        run: |
+          echo "::group::Build PacMux-0.3.0"
+          cmake --build build --config Release --parallel --target PacMux_0_3_0
+          echo "::endgroup::"
+
+      - name: Build PacMux-0.4.0
+        id: build_0_4_0
+        continue-on-error: true
+        run: |
+          echo "::group::Build PacMux-0.4.0"
+          cmake --build build --config Release --parallel --target PacMux_0_4_0
+          echo "::endgroup::"
+
+      - name: Build PacMux-0.5.0
+        id: build_0_5_0
+        continue-on-error: true
+        run: |
+          echo "::group::Build PacMux-0.5.0"
+          cmake --build build --config Release --parallel --target PacMux_0_5_0
+          echo "::endgroup::"
+
+      - name: Build PacMux-0.6.0
+        id: build_0_6_0
+        continue-on-error: true
+        run: |
+          echo "::group::Build PacMux-0.6.0"
+          cmake --build build --config Release --parallel --target PacMux_0_6_0
+          echo "::endgroup::"
+
+      - name: Build PacMux-0.7.0
+        id: build_0_7_0
+        continue-on-error: true
+        run: |
+          echo "::group::Build PacMux-0.7.0"
+          cmake --build build --config Release --parallel --target PacMux_0_7_0
+          echo "::endgroup::"
+
+      - name: Build PacMux-0.8.0
+        id: build_0_8_0
+        continue-on-error: true
+        run: |
+          echo "::group::Build PacMux-0.8.0"
+          cmake --build build --config Release --parallel --target PacMux_0_8_0
+          echo "::endgroup::"
+
+      - name: Build PacMux-0.9.0
+        id: build_0_9_0
+        continue-on-error: true
+        run: |
+          echo "::group::Build PacMux-0.9.0"
+          cmake --build build --config Release --parallel --target PacMux_0_9_0
+          echo "::endgroup::"
+
+      - name: Build PacMux-1.0.0
+        id: build_1_0_0
+        continue-on-error: true
+        run: |
+          echo "::group::Build PacMux-1.0.0"
+          cmake --build build --config Release --parallel --target PacMux_1_0_0
+          echo "::endgroup::"
+
+      - name: Build PacMux-1.1.0
+        id: build_1_1_0
+        continue-on-error: true
+        run: |
+          echo "::group::Build PacMux-1.1.0"
+          cmake --build build --config Release --parallel --target PacMux_1_1_0
+          echo "::endgroup::"
+
+      - name: Build PacMux-1.2.0
+        id: build_1_2_0
+        continue-on-error: true
+        run: |
+          echo "::group::Build PacMux-1.2.0"
+          cmake --build build --config Release --parallel --target PacMux_1_2_0
+          echo "::endgroup::"
 
       - name: Smoke run 1.2.0 (Linux, 5s)
         if: runner.os == 'Linux'
@@ -73,3 +171,26 @@ jobs:
         run: |
           mkdir -p assets && cp -r ../../PacMux-1.2.0/assets/* assets/
           if [ -f PacmanR12 ]; then ./PacmanR12 & pid=$!; sleep 5; kill $pid || true; fi
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Risultati build";
+            echo "Platform: ${{ matrix.platform.name }} | Config: ${{ matrix.config.name }}";
+            echo "";
+            echo "| Versione | Esito |";
+            echo "|---|---|";
+            echo "| 0.1.0 | ${{ steps.build_0_1_0.outcome }} |";
+            echo "| 0.2.0 | ${{ steps.build_0_2_0.outcome }} |";
+            echo "| 0.3.0 | ${{ steps.build_0_3_0.outcome }} |";
+            echo "| 0.4.0 | ${{ steps.build_0_4_0.outcome }} |";
+            echo "| 0.5.0 | ${{ steps.build_0_5_0.outcome }} |";
+            echo "| 0.6.0 | ${{ steps.build_0_6_0.outcome }} |";
+            echo "| 0.7.0 | ${{ steps.build_0_7_0.outcome }} |";
+            echo "| 0.8.0 | ${{ steps.build_0_8_0.outcome }} |";
+            echo "| 0.9.0 | ${{ steps.build_0_9_0.outcome }} |";
+            echo "| 1.0.0 | ${{ steps.build_1_0_0.outcome }} |";
+            echo "| 1.1.0 | ${{ steps.build_1_1_0.outcome }} |";
+            echo "| 1.2.0 | ${{ steps.build_1_2_0.outcome }} |";
+          } >> "$GITHUB_STEP_SUMMARY"

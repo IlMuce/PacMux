@@ -41,6 +41,7 @@ function(add_release name dir)
             -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/_install/${dir}
             -DSFML_DIR=${sfml_BINARY_DIR}/lib/cmake/SFML
             -DCMAKE_PREFIX_PATH=${sfml_BINARY_DIR}/lib/cmake/SFML
+            -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON
             ${_extra_args}
         INSTALL_COMMAND ""
     )

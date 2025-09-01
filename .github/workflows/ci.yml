@@ -161,7 +161,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path assets | Out-Null
-          Copy-Item -Recurse -Force ../../PacMux-1.2.0/assets/* assets/
+          Copy-Item -Recurse -Force ../../../PacMux-1.2.0/assets/* assets/
           if (Test-Path .\PacmanR12.exe) {
             $p = Start-Process -FilePath .\PacmanR12.exe -PassThru
             Start-Sleep -Seconds 5

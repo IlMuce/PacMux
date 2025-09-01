@@ -1,36 +1,84 @@
 #include <SFML/Graphics.hpp>
-#include <Windows.h>          // Per gestione path e messaggi di errore
 #include <filesystem>
 #include <vector>
 #include <memory>
 #include <string>
+#include <iostream>
+#include <array>
+#include <cstdint>
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
+#if defined(__linux__)
+#include <unistd.h>
+#endif
 
 #include "TileMap.hpp"
 #include "Player.hpp"
 #include "Pellet.hpp"
 #include "Score.hpp"
 
-int main()
-{
+namespace {
     namespace fs = std::filesystem;
 
+    static fs::path getExecutableDir() {
+#if defined(_WIN32)
+        // Use WinAPI only when building on Windows
+        char buf[32768];
+        unsigned long len = GetModuleFileNameA(nullptr, buf, static_cast<unsigned long>(sizeof(buf)));
+        if (len == 0 || len >= sizeof(buf)) {
+            return fs::current_path();
+        }
+        return fs::path(buf).parent_path();
+#elif defined(__APPLE__)
+        uint32_t size = 0;
+        _NSGetExecutablePath(nullptr, &size);
+        std::string tmp(size, '\0');
+        if (_NSGetExecutablePath(tmp.data(), &size) == 0) {
+            return fs::path(tmp.c_str()).parent_path();
+        }
+        return fs::current_path();
+#elif defined(__linux__)
+        std::array<char, 4096> buf{};
+        ssize_t count = readlink("/proc/self/exe", buf.data(), buf.size() - 1);
+        if (count > 0) {
+            buf[static_cast<size_t>(count)] = '\0';
+            return fs::path(buf.data()).parent_path();
+        }
+        return fs::current_path();
+#else
+        return fs::current_path();
+#endif
+    }
+
+    static void showDialog(const std::string& title, const std::string& message, bool errorIcon = true) {
+#if defined(_WIN32)
+        MessageBoxA(nullptr, message.c_str(), title.c_str(), MB_OK | (errorIcon ? MB_ICONERROR : MB_ICONINFORMATION));
+#else
+        std::cerr << title << ": " << message << std::endl;
+#endif
+    }
+}
+
+int main()
+{
     // Recupera la cartella dell'eseguibile e degli asset
-    char buf[MAX_PATH];
-    GetModuleFileNameA(NULL, buf, MAX_PATH);
-    fs::path exeDir = fs::path(buf).parent_path();
+    fs::path exeDir = getExecutableDir();
     fs::path assets = exeDir / "assets";
     fs::path mapPath = assets / "map1.txt";
     fs::path fontPath = assets / "arial.ttf";
 
     // Verifica la presenza degli asset fondamentali
     if (!fs::exists(mapPath)) {
-        MessageBoxA(NULL, ("Mappa non trovata:\n" + mapPath.string()).c_str(),
-                    "Errore Pacman", MB_OK|MB_ICONERROR);
+        showDialog("Errore Pacman", "Mappa non trovata:\n" + mapPath.string(), true);
         return EXIT_FAILURE;
     }
     if (!fs::exists(fontPath)) {
-        MessageBoxA(NULL, ("Font non trovato:\n" + fontPath.string()).c_str(),
-                    "Errore Pacman", MB_OK|MB_ICONERROR);
+        showDialog("Errore Pacman", "Font non trovato:\n" + fontPath.string(), true);
         return EXIT_FAILURE;
     }
 
@@ -43,8 +91,7 @@ int main()
     // Carica la mappa dal file
     TileMap map;
     if (!map.load(mapPath.string(), tileSize)) {
-        MessageBoxA(NULL, ("Errore caricamento mappa:\n"+mapPath.string()).c_str(),
-                    "Errore Pacman", MB_OK|MB_ICONERROR);
+        showDialog("Errore Pacman", "Errore caricamento mappa:\n" + mapPath.string(), true);
         return EXIT_FAILURE;
     }
     auto mapSz = map.getSize();
@@ -70,7 +117,7 @@ int main()
     try {
         score = std::make_unique<Score>(fontPath.string());
     } catch (const std::exception& e) {
-        MessageBoxA(NULL, e.what(), "Errore Pacman", MB_OK|MB_ICONERROR);
+        showDialog("Errore Pacman", e.what(), true);
         return EXIT_FAILURE;
     }
 

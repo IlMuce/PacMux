@@ -21,7 +21,7 @@ Come compilare con il superbuild
     - cmake --build build --config Release --target PacMux_1_2_0
 
 Dove trovare gli eseguibili (Release)
-- build/PacMux-<versione>-build/Release/PacmanR<versione>.exe
+- build/PacMux-<versione>-build/PacmanR<versione>.exe
 
 ## Requisiti
 
@@ -37,7 +37,7 @@ cd build
 cmake .. -G "Visual Studio 17 2022" -A x64
 cmake --build . --config Release
 ```
-L’eseguibile verrà generato in `build/Release/PacmanR12.exe` e dovrà essere eseguito da lì affinché trovi la cartella `assets` al suo fianco.
+L’eseguibile verrà generato in `build/PacmanR12.exe` e dovrà essere eseguito da lì affinché trovi la cartella `assets` al suo fianco.
 
 Oppure da VS Code (Command Palette):
 - Ctrl+Shift+P → "CMake: Select a Kit" → scegli Visual Studio 2022 x64.

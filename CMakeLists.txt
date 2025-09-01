@@ -40,9 +40,6 @@ ExternalProject_Add(SFML_ext
 function(add_release name dir)
     # Raccogli argomenti comuni da propagare ai subprogetti
     set(_extra_args)
-    if (DEFINED CMAKE_C_COMPILER)
-        list(APPEND _extra_args -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER})
-    endif()
     if (DEFINED CMAKE_CXX_COMPILER)
         list(APPEND _extra_args -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER})
     endif()

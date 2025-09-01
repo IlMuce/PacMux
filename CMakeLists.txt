@@ -30,9 +30,18 @@ function(add_release name dir)
     endif()
 
     # Allinea la scelta static/shared con SFML: se BUILD_SHARED_LIBS=OFF, chiedi statiche esplicitamente
-    set(_sfml_static OFF)
-    if (DEFINED BUILD_SHARED_LIBS AND NOT BUILD_SHARED_LIBS)
-        set(_sfml_static ON)
+    if (DEFINED BUILD_SHARED_LIBS)
+        if (BUILD_SHARED_LIBS)
+            set(_build_shared_val ON)
+            set(_sfml_static_val OFF)
+        else()
+            set(_build_shared_val OFF)
+            set(_sfml_static_val ON)
+        endif()
+    else()
+        # Default: shared
+        set(_build_shared_val ON)
+        set(_sfml_static_val OFF)
     endif()
 
     ExternalProject_Add(${name}
@@ -46,8 +55,8 @@ function(add_release name dir)
             ${_extra_args}
         CMAKE_CACHE_ARGS
             -DSFML_DIR:PATH=${sfml_BINARY_DIR}
-            -DBUILD_SHARED_LIBS:BOOL=$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,ON,OFF>
-            -DSFML_STATIC_LIBRARIES:BOOL=${_sfml_static}
+            -DBUILD_SHARED_LIBS:BOOL=${_build_shared_val}
+            -DSFML_STATIC_LIBRARIES:BOOL=${_sfml_static_val}
         INSTALL_COMMAND ""
     )
 endfunction()

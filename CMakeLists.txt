@@ -22,14 +22,17 @@ include(ExternalProject)
 function(add_release name dir)
     # Raccogli argomenti comuni da propagare ai subprogetti
     set(_extra_args)
-    if (DEFINED BUILD_SHARED_LIBS)
-        list(APPEND _extra_args -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS})
-    endif()
     if (DEFINED CMAKE_C_COMPILER)
         list(APPEND _extra_args -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER})
     endif()
     if (DEFINED CMAKE_CXX_COMPILER)
         list(APPEND _extra_args -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER})
+    endif()
+
+    # Allinea la scelta static/shared con SFML: se BUILD_SHARED_LIBS=OFF, chiedi statiche esplicitamente
+    set(_sfml_static OFF)
+    if (DEFINED BUILD_SHARED_LIBS AND NOT BUILD_SHARED_LIBS)
+        set(_sfml_static ON)
     endif()
 
     ExternalProject_Add(${name}
@@ -39,10 +42,12 @@ function(add_release name dir)
             -DCMAKE_CXX_STANDARD=20
             -DCMAKE_CXX_STANDARD_REQUIRED=ON
             -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/_install/${dir}
-            -DSFML_DIR=${sfml_BINARY_DIR}/cmake/SFML
-            -DCMAKE_PREFIX_PATH=${sfml_BINARY_DIR}\;${sfml_BINARY_DIR}/cmake\;${sfml_BINARY_DIR}/cmake/SFML\;${sfml_BINARY_DIR}/lib/cmake\;${sfml_BINARY_DIR}/lib/cmake/SFML
             -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON
             ${_extra_args}
+        CMAKE_CACHE_ARGS
+            -DSFML_DIR:PATH=${sfml_BINARY_DIR}
+            -DBUILD_SHARED_LIBS:BOOL=$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,ON,OFF>
+            -DSFML_STATIC_LIBRARIES:BOOL=${_sfml_static}
         INSTALL_COMMAND ""
     )
 endfunction()

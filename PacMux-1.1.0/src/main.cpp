@@ -1,13 +1,24 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
-#include <Windows.h> // Per gestione path e messaggi di errore
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#ifdef __APPLE__
+#endif
+#endif
 #include <filesystem>
 #include <vector>
 #include <memory>
 #include <string>
-#include <iostream> // Per il log di debug
-#include <cstdint>  // Per std::uint32_t
-#include <cctype>   // Per std::isalnum, std::toupper
+#include <iostream>  // Per il log di debug
+#include <cstdlib>   // getenv, atoi
+#include <cstdint>   // Per std::uint32_t
+#include <cctype>    // Per std::isalnum, std::toupper
+#include <random>    // Per RNG spawn frutti casuali
+#include <optional>  // Per std::optional usato con pollEvent
+#include <algorithm> // Per std::find_if
+#include <cmath>     // Per std::pow, std::sin, std::abs
 
 #include "TileMap.hpp"
 #include "Player.hpp"

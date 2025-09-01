@@ -7,20 +7,31 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Consenti ai subprogetti legacy di configurarsi con CMake 4.x
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
-# Costruiamo staticamente di default (ogni subprogetto può sovrascrivere)
-set(BUILD_SHARED_LIBS OFF)
+# Non forzare BUILD_SHARED_LIBS a livello globale; lascia ai subprogetti o alla toolchain
 
 # Porta SFML via FetchContent (usato da TUTTE le release)
 include(FetchContent)
 FetchContent_Declare(SFML
     GIT_REPOSITORY https://github.com/SFML/SFML.git
-    GIT_TAG 3.0.0
+    GIT_TAG 3.0.1
 )
 FetchContent_MakeAvailable(SFML)
 
 include(ExternalProject)
 
 function(add_release name dir)
+    # Raccogli argomenti comuni da propagare ai subprogetti
+    set(_extra_args)
+    if (DEFINED BUILD_SHARED_LIBS)
+        list(APPEND _extra_args -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS})
+    endif()
+    if (DEFINED CMAKE_C_COMPILER)
+        list(APPEND _extra_args -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER})
+    endif()
+    if (DEFINED CMAKE_CXX_COMPILER)
+        list(APPEND _extra_args -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER})
+    endif()
+
     ExternalProject_Add(${name}
         SOURCE_DIR "${CMAKE_SOURCE_DIR}/${dir}"
         BINARY_DIR "${CMAKE_BINARY_DIR}/${dir}-build"
@@ -29,6 +40,8 @@ function(add_release name dir)
             -DCMAKE_CXX_STANDARD_REQUIRED=ON
             -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/_install/${dir}
             -DSFML_DIR=${sfml_BINARY_DIR}/lib/cmake/SFML
+            -DCMAKE_PREFIX_PATH=${sfml_BINARY_DIR}/lib/cmake/SFML
+            ${_extra_args}
         INSTALL_COMMAND ""
     )
 endfunction()

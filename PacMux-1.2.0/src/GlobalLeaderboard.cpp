@@ -7,6 +7,7 @@
 #include <ctime>
 #include <iomanip>
 #include <algorithm>
+#include <cstdlib> // for std::getenv, std::rand
 
 // GitHub Raw Files configuration with secondary account
 // Setup automatico:
@@ -28,7 +29,7 @@ GlobalLeaderboard::GlobalLeaderboard(const std::string& fontFile)
     const char* token = std::getenv("GITHUB_TOKEN");
     if (token) {
         m_apiToken = token;
-        std::cout << "GitHub token loaded from environment variable." << std::endl;
+    // std::cout << "GitHub token loaded from environment variable." << std::endl;
     } else {
         // Token embedded (spezzato per evitare GitHub security scanning)
         // Sostituisci con il token del tuo account secondario
@@ -37,7 +38,7 @@ GlobalLeaderboard::GlobalLeaderboard(const std::string& fontFile)
         std::string part3 = "GIMq4453Sef";
         
         m_apiToken = part1 + part2 + part3;
-        std::cout << "Using embedded GitHub token from secondary account." << std::endl;
+    // std::cout << "Using embedded GitHub token from secondary account." << std::endl;
     }
 }
 
@@ -62,7 +63,7 @@ void GlobalLeaderboard::uploadScore(const std::string& playerName, unsigned int 
     // Se c'è già un upload in corso, accoda
     if (m_status == Status::Uploading || (m_uploadFuture.valid() && m_uploadFuture.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready)) {
         m_pendingUploads.push_back(newEntry);
-    // std::cout << "[DEBUG] Upload in progress, queued new entry. Queue size=" << m_pendingUploads.size() << std::endl;
+    // std::cout << "Upload in progress, queued new entry. Queue size=" << m_pendingUploads.size() << std::endl;
         return;
     }
 
@@ -77,6 +78,7 @@ void GlobalLeaderboard::startUpload(const GlobalEntry& entry) {
     // Operazione asincrona per GitHub
     m_uploadFuture = std::async(std::launch::async, [this, entry]() -> bool {
         try {
+            // std::cout << "Starting upload..." << std::endl;
             // Prima scarica i dati esistenti dal Gist
             std::string currentData = httpGetGist();
             std::vector<GlobalEntry> scores;
@@ -101,12 +103,14 @@ void GlobalLeaderboard::startUpload(const GlobalEntry& entry) {
             
             // Crea JSON e carica su GitHub Raw Files
             std::string jsonData = createScoresJson(scores);
-            // std::cout << "[DEBUG] JSON being uploaded: " << jsonData.substr(0, std::min(200, (int)jsonData.length())) << std::endl;
-            // std::cout << "[DEBUG] Total scores in upload: " << scores.size() << std::endl;
-            return httpUpdateGist(jsonData);
+            // std::cout << "Upload payload bytes=" << jsonData.size() << ", entries=" << scores.size() << std::endl;
+            bool ok = httpUpdateGist(jsonData);
+            // std::cout << "Upload result=" << (ok ? "success" : "fail") << std::endl;
+            return ok;
             
         } catch (const std::exception& e) {
             m_errorMessage = std::string("Upload failed: ") + e.what();
+            // std::cout << "Upload exception: " << e.what() << std::endl;
             return false;
         }
     });
@@ -128,12 +132,12 @@ void GlobalLeaderboard::downloadLeaderboard() {
     // Operazione asincrona per GitHub Gist
     m_downloadFuture = std::async(std::launch::async, [this]() -> bool {
         try {
-            // std::cout << "[DEBUG] Starting download from GitHub..." << std::endl;
+            // std::cout << "Starting download from GitHub..." << std::endl;
             if (m_cancelRequested.load()) return false;
             std::string response = httpGetGist();
             
             if (response.empty()) {
-                // std::cout << "[DEBUG] Empty response - likely offline or misconfigured" << std::endl;
+                // std::cout << "Empty response - likely offline or misconfigured" << std::endl;
                 return false; // segnala errore (no update)
             }
             
@@ -141,7 +145,7 @@ void GlobalLeaderboard::downloadLeaderboard() {
             std::vector<GlobalEntry> tmp;
             if (m_cancelRequested.load()) return false;
             bool success = parseGlobalScores(response, tmp);
-            // std::cout << "[DEBUG] Parse result: " << success << ", count: " << tmp.size() << std::endl;
+            // std::cout << "Parse result: " << (success ? "ok" : "fail") << ", count=" << tmp.size() << std::endl;
             if (success) {
                 // Non toccare m_globalScores dal thread: salva in staging buffer
                 std::lock_guard<std::mutex> lock(m_mutex);
@@ -150,7 +154,7 @@ void GlobalLeaderboard::downloadLeaderboard() {
             return success;
         }
         catch (const std::exception& e) {
-            // std::cout << "[DEBUG] Download exception: " << e.what() << std::endl;
+            // std::cout << "Download exception: " << e.what() << std::endl;
             m_errorMessage = "Download failed: " + std::string(e.what());
             return false;
         }
@@ -169,7 +173,7 @@ void GlobalLeaderboard::update() {
         if (!m_pendingUploads.empty()) {
             GlobalEntry next = m_pendingUploads.front();
             m_pendingUploads.pop_front();
-            // std::cout << "[DEBUG] Starting next queued upload. Remaining=" << m_pendingUploads.size() << std::endl;
+            // std::cout << "Starting next queued upload. Remaining=" << m_pendingUploads.size() << std::endl;
             startUpload(next);
             return; // Non avviare il download ora: lo faremo dopo l'ultimo upload
         }
@@ -200,6 +204,7 @@ void GlobalLeaderboard::update() {
                 m_threadDownloadedScores.clear();
             }
             m_lastUpdated = std::time(nullptr);
+            // std::cout << "Leaderboard updated. Entries=" << m_globalScores.size() << std::endl;
         }
         if (!m_hasPendingStatus) {
             m_status = success ? Status::Success : Status::Error;
@@ -354,11 +359,19 @@ void GlobalLeaderboard::draw(sf::RenderTarget& target, const sf::Vector2u& windo
 // HTTP GET da GitHub Raw Files usando CPR
 std::string GlobalLeaderboard::httpGetGist() {
     try {
+        const bool insecure = (std::getenv("PACMUX_INSECURE_SSL") != nullptr);
+    // if (insecure) {
+    //     std::cout << "PACMUX_INSECURE_SSL=1 -> SSL verification disabled" << std::endl;
+    // }
+        // Build SSL options: force TLS 1.2; when insecure, disable peer/host verification too
+        auto sslOpt = insecure
+            ? cpr::Ssl(cpr::ssl::TLSv1_2{}, cpr::ssl::VerifyPeer{false}, cpr::ssl::VerifyHost{false})
+            : cpr::Ssl(cpr::ssl::TLSv1_2{});
         // Se configurazione non è ancora aggiornata con account secondario, usa dati simulati
         if (JSONBIN_URL.find("ACCOUNT_SECONDARIO") != std::string::npos || 
             m_apiToken.find("SOSTITUISCI") != std::string::npos) {
             // Config non completata: non restituire dati fittizi in runtime
-            // std::cout << "[DEBUG] GitHub not configured - returning empty to avoid fake data" << std::endl;
+            // std::cout << "GitHub not configured - returning empty to avoid fake data" << std::endl;
             return "";
         }
         
@@ -366,7 +379,7 @@ std::string GlobalLeaderboard::httpGetGist() {
         if (!m_apiToken.empty()) {
             std::string repoInfo = extractRepoInfo();
             std::string apiUrl = "https://api.github.com/repos/" + repoInfo + "/contents/scores.json";
-            // std::cout << "[DEBUG] Requesting GitHub Contents API: " << apiUrl << std::endl;
+            // std::cout << "Requesting GitHub Contents API: " << apiUrl << std::endl;
             auto ra = cpr::Get(
                 cpr::Url{apiUrl},
                 cpr::Header{
@@ -374,10 +387,12 @@ std::string GlobalLeaderboard::httpGetGist() {
                     {"Accept", "application/vnd.github.v3+json"},
                     {"Authorization", "token " + m_apiToken}
                 },
+                cpr::VerifySsl{!insecure},
+                sslOpt,
                 cpr::Timeout{15000},
                 cpr::Redirect{true}
             );
-            // std::cout << "[DEBUG] Contents API Status: " << ra.status_code << std::endl;
+            // std::cout << "Contents API Status: " << ra.status_code << std::endl;
             if (ra.status_code == 200) {
                 const std::string& body = ra.text;
                 // Estrai il campo "content" (string JSON) tenendo conto delle sequenze escape
@@ -454,29 +469,29 @@ std::string GlobalLeaderboard::httpGetGist() {
 
                     std::string decoded = decodeB64(b64);
                     if (!decoded.empty()) {
-                        // std::cout << "[DEBUG] Loaded content via API (decoded length=" << decoded.size() << ")" << std::endl;
+                        // std::cout << "Loaded content via API (decoded length=" << decoded.size() << ")" << std::endl;
                         // Sanity check: deve contenere la chiave leaderboard e le parentesi dell'array
                         if (decoded.find("\"leaderboard\"") != std::string::npos &&
                             decoded.find("[") != std::string::npos && decoded.find("]") != std::string::npos) {
                             return decoded;
                         } else {
-                            // std::cout << "[DEBUG] Decoded payload missing leaderboard array, falling back to Raw" << std::endl;
+                            // std::cout << "Decoded payload missing leaderboard array, falling back to Raw" << std::endl;
                         }
                     }
                 }
             } else {
-                if (!ra.text.empty()) {
-                    // std::cout << "[DEBUG] Contents API response: " << ra.text.substr(0, 200) << std::endl;
-                }
+                // if (!ra.text.empty()) {
+                //     std::cout << "Contents API response snippet: " << ra.text.substr(0, 200) << std::endl;
+                // }
             }
         }
 
         // Fallback: Raw Files con cache buster
-    // std::cout << "[DEBUG] Requesting GitHub Raw Files: " << JSONBIN_URL << std::endl;
+    // std::cout << "Requesting GitHub Raw Files: " << JSONBIN_URL << std::endl;
         
         // Aggiungi un timestamp per evitare la cache + numero random per maggiore unicità
         std::string urlWithTimestamp = JSONBIN_URL + "?_=" + std::to_string(std::time(nullptr)) + "&r=" + std::to_string(std::rand());
-    // std::cout << "[DEBUG] URL with cache-buster: " << urlWithTimestamp << std::endl;
+    // std::cout << "URL with cache-buster: " << urlWithTimestamp << std::endl;
         
         auto r = cpr::Get(
             cpr::Url{urlWithTimestamp},
@@ -487,28 +502,28 @@ std::string GlobalLeaderboard::httpGetGist() {
                 {"Pragma", "no-cache"},
                 {"Expires", "0"}
             },
+            cpr::VerifySsl{!insecure},
+            sslOpt,
             cpr::Timeout{15000},   // 15 secondi
             cpr::Redirect{true}
         );
         
-    // std::cout << "[DEBUG] HTTP Status: " << r.status_code << std::endl;
+    // std::cout << "Raw HTTP Status: " << r.status_code << ", error='" << r.error.message << "'" << std::endl;
         
         if (r.status_code == 200) {
-            // std::cout << "[DEBUG] GitHub Raw Files data loaded successfully!" << std::endl;
-            // std::cout << "[DEBUG] Content length: " << r.text.length() << std::endl;
+        // std::cout << "GitHub Raw Files data loaded successfully! length=" << r.text.length() << std::endl;
             return r.text;
         } else {
-            // std::cout << "[DEBUG] HTTP error: " << r.status_code << " - " << r.error.message << std::endl;
-            if (!r.text.empty()) {
-                // std::cout << "[DEBUG] Response: " << r.text.substr(0, 200) << std::endl;
-            }
+            // if (!r.text.empty()) {
+        //     std::cout << "Raw response snippet: " << r.text.substr(0, 200) << std::endl;
+            // }
         }
         
-    // std::cout << "[DEBUG] Failed to connect to GitHub (Raw) - returning empty" << std::endl;
+    // std::cout << "Failed to connect to GitHub (Raw) - returning empty" << std::endl;
         return "";
         
     } catch (const std::exception& e) {
-    // std::cout << "[DEBUG] Exception in httpGetGist: " << e.what() << std::endl;
+    // std::cout << "Exception in httpGetGist: " << e.what() << std::endl;
         return "";
     }
 }
@@ -551,12 +566,16 @@ std::size_t GlobalLeaderboard::computeVisibleCount(const sf::Vector2u& windowSiz
 // HTTP UPDATE per GitHub Repository usando CPR
 bool GlobalLeaderboard::httpUpdateGist(const std::string& jsonData) {
     try {
+        const bool insecure = (std::getenv("PACMUX_INSECURE_SSL") != nullptr);
+        auto sslOpt = insecure
+            ? cpr::Ssl(cpr::ssl::TLSv1_2{}, cpr::ssl::VerifyPeer{false}, cpr::ssl::VerifyHost{false})
+            : cpr::Ssl(cpr::ssl::TLSv1_2{});
         // Se configurazione non è ancora aggiornata con account secondario, simula successo
         if (JSONBIN_URL.find("ACCOUNT_SECONDARIO") != std::string::npos || 
             m_apiToken.find("SOSTITUISCI") != std::string::npos) {
             
-            // std::cout << "[DEBUG] GitHub Raw Files not configured, simulating upload..." << std::endl;
-            // std::cout << "[DEBUG] Data to upload: " << jsonData.substr(0, std::min(100, (int)jsonData.length())) << std::endl;
+            // std::cout << "GitHub Raw Files not configured, simulating upload..." << std::endl;
+            // std::cout << "Data to upload (snippet): " << jsonData.substr(0, std::min(100, (int)jsonData.length())) << std::endl;
             return true; // Simula successo
         }
         
@@ -567,8 +586,8 @@ bool GlobalLeaderboard::httpUpdateGist(const std::string& jsonData) {
         // Crea il payload per aggiornare il file
         std::string payload = createGitHubUpdatePayload(jsonData);
         
-    // std::cout << "[DEBUG] Updating GitHub file via API: " << apiUrl << std::endl;
-    // std::cout << "[DEBUG] Payload size: " << payload.length() << std::endl;
+    // std::cout << "Updating GitHub file via API: " << apiUrl << std::endl;
+    // std::cout << "Payload size: " << payload.length() << std::endl;
         
         auto r = cpr::Put(
             cpr::Url{apiUrl},
@@ -579,25 +598,25 @@ bool GlobalLeaderboard::httpUpdateGist(const std::string& jsonData) {
                 {"Authorization", "token " + m_apiToken}
             },
             cpr::Body{payload},
+            cpr::VerifySsl{!insecure},
+            sslOpt,
             cpr::Timeout{15000}
         );
         
-    // std::cout << "[DEBUG] GitHub API Status: " << r.status_code << std::endl;
+    // std::cout << "GitHub API Status: " << r.status_code << ", error='" << r.error.message << "'" << std::endl;
         
         if (r.status_code == 200 || r.status_code == 201) {
-            // std::cout << "[DEBUG] GitHub file update successful!" << std::endl;
-            // std::cout << "[INFO] Score uploaded! Visual update may take 5-10 minutes due to GitHub CDN cache." << std::endl;
+        // std::cout << "GitHub file update successful!" << std::endl;
             return true;
         } else {
-            // std::cout << "[DEBUG] GitHub file update failed: " << r.status_code << " - " << r.error.message << std::endl;
-            if (!r.text.empty()) {
-                // std::cout << "[DEBUG] Response: " << r.text.substr(0, 200) << std::endl;
-            }
+            // if (!r.text.empty()) {
+        //     std::cout << "Update response snippet: " << r.text.substr(0, 200) << std::endl;
+            // }
             return false;
         }
         
     } catch (const std::exception& e) {
-    // std::cout << "[DEBUG] Exception in httpUpdateGist: " << e.what() << std::endl;
+    // std::cout << "Exception in httpUpdateGist: " << e.what() << std::endl;
         return false;
     }
 }
@@ -646,32 +665,32 @@ bool GlobalLeaderboard::parseGlobalScores(const std::string& jsonResponse, std::
     scores.clear();
     
     if (jsonResponse.empty()) {
-    // std::cout << "[DEBUG] JSON response is empty" << std::endl;
+    // std::cout << "JSON response is empty" << std::endl;
         return true; // Primo utilizzo, nessun dato ancora
     }
     
     // Log limitato per evitare lag
-    // std::cout << "[DEBUG] JSON to parse: " << jsonResponse.substr(0, std::min(150, (int)jsonResponse.length())) << std::endl;
+    // std::cout << "JSON to parse (snippet): " << jsonResponse.substr(0, std::min(150, (int)jsonResponse.length())) << std::endl;
     
     // Cerca l'array "leaderboard" nel JSON
     size_t leaderboardPos = jsonResponse.find("\"leaderboard\":");
     if (leaderboardPos == std::string::npos) {
-    // std::cout << "[DEBUG] 'leaderboard' key not found in JSON" << std::endl;
+    // std::cout << "'leaderboard' key not found in JSON" << std::endl;
         return false; // Formato JSON non valido
     }
     
     size_t arrayStart = jsonResponse.find("[", leaderboardPos);
     size_t arrayEnd = jsonResponse.find("]", arrayStart);
     if (arrayStart == std::string::npos || arrayEnd == std::string::npos) {
-    // std::cout << "[DEBUG] Array brackets not found" << std::endl;
+    // std::cout << "Array brackets not found" << std::endl;
         return false;
     }
     
-    // std::cout << "[DEBUG] Array bounds: " << arrayStart << "-" << arrayEnd << std::endl;
+    // std::cout << "Array bounds: " << arrayStart << "-" << arrayEnd << std::endl;
     
     // Estrai il contenuto dell'array
     std::string arrayContent = jsonResponse.substr(arrayStart + 1, arrayEnd - arrayStart - 1);
-    // std::cout << "[DEBUG] Array content preview: " << arrayContent.substr(0, std::min(100, (int)arrayContent.length())) << std::endl;
+    // std::cout << "Array content preview: " << arrayContent.substr(0, std::min(100, (int)arrayContent.length())) << std::endl;
     
     // Parsing degli oggetti JSON: cerca "name", "score", "timestamp" in ogni oggetto
     size_t pos = 0;
@@ -699,7 +718,7 @@ bool GlobalLeaderboard::parseGlobalScores(const std::string& jsonResponse, std::
         }
         
         if (braceCount != 0) {
-            // std::cout << "[DEBUG] Unmatched braces in JSON object" << std::endl;
+            // std::cout << "Unmatched braces in JSON object" << std::endl;
             break;
         }
         
@@ -764,10 +783,10 @@ bool GlobalLeaderboard::parseGlobalScores(const std::string& jsonResponse, std::
                 fieldsFound++;
                 // timestamp parsed
             } else {
-                // std::cout << "[DEBUG] Timestamp end not found in: " << objContent << std::endl;
+                // std::cout << "Timestamp end not found in: " << objContent << std::endl;
             }
         } else {
-            // std::cout << "[DEBUG] Timestamp key not found in: " << objContent << std::endl;
+            // std::cout << "Timestamp key not found in: " << objContent << std::endl;
         }
         
         // Aggiungi il record se ha tutti i campi
@@ -776,14 +795,14 @@ bool GlobalLeaderboard::parseGlobalScores(const std::string& jsonResponse, std::
             recordsParsed++;
             // record added
         } else {
-            // std::cout << "[DEBUG] Skipping incomplete record (found " << fieldsFound << " fields)" << std::endl;
+            // std::cout << "Skipping incomplete record (found " << fieldsFound << " fields)" << std::endl;
         }
         
         // Vai al prossimo oggetto dopo la parentesi di chiusura
         pos = objEnd;
     }
     
-    // std::cout << "[DEBUG] Parsed " << scores.size() << " scores" << std::endl;
+    // std::cout << "Parsed " << scores.size() << " scores" << std::endl;
     
     // Ordina per punteggio decrescente
     std::sort(scores.begin(), scores.end(), 
@@ -872,11 +891,15 @@ std::string GlobalLeaderboard::base64Encode(const std::string& data) {
 
 std::string GlobalLeaderboard::getCurrentFileSha() {
     try {
+        const bool insecure = (std::getenv("PACMUX_INSECURE_SSL") != nullptr);
+        auto sslOpt = insecure
+            ? cpr::Ssl(cpr::ssl::TLSv1_2{}, cpr::ssl::VerifyPeer{false}, cpr::ssl::VerifyHost{false})
+            : cpr::Ssl(cpr::ssl::TLSv1_2{});
         // Ottieni lo SHA attuale del file tramite API GitHub
         std::string repoInfo = extractRepoInfo();
         std::string apiUrl = "https://api.github.com/repos/" + repoInfo + "/contents/scores.json";
         
-    // std::cout << "[DEBUG] Getting current file SHA from: " << apiUrl << std::endl;
+    // std::cout << "Getting current file SHA from: " << apiUrl << std::endl;
         
         auto r = cpr::Get(
             cpr::Url{apiUrl},
@@ -885,10 +908,12 @@ std::string GlobalLeaderboard::getCurrentFileSha() {
                 {"Accept", "application/vnd.github.v3+json"},
                 {"Authorization", "token " + m_apiToken}
             },
+            cpr::VerifySsl{!insecure},
+            sslOpt,
             cpr::Timeout{10000}
         );
         
-    // std::cout << "[DEBUG] SHA Request Status: " << r.status_code << std::endl;
+    // std::cout << "SHA Request Status: " << r.status_code << ", error='" << r.error.message << "'" << std::endl;
         
         if (r.status_code == 200) {
             // Estrai lo SHA dalla risposta JSON
@@ -899,19 +924,20 @@ std::string GlobalLeaderboard::getCurrentFileSha() {
                 size_t shaEnd = response.find("\"", shaStart);
                 if (shaEnd != std::string::npos) {
                     std::string sha = response.substr(shaStart, shaEnd - shaStart);
-                    // std::cout << "[DEBUG] Current file SHA: " << sha << std::endl;
+            // std::cout << "Current file SHA: " << sha << std::endl;
                     return sha;
                 }
             }
+        // std::cout << "SHA not found in response" << std::endl;
         } else {
-            // std::cout << "[DEBUG] Failed to get SHA: " << r.status_code << " - " << r.error.message << std::endl;
+        // std::cout << "Failed to get SHA: " << r.status_code << " - " << r.error.message << std::endl;
         }
         
     } catch (const std::exception& e) {
-    // std::cout << "[DEBUG] Exception getting SHA: " << e.what() << std::endl;
+    // std::cout << "Exception getting SHA: " << e.what() << std::endl;
     }
     
     // Fallback: usa SHA dummy (questo causerà errore ma è meglio di niente)
-    // std::cout << "[DEBUG] Using dummy SHA - upload will likely fail" << std::endl;
+    // std::cout << "Using dummy SHA - upload will likely fail" << std::endl;
     return "dummy_sha_will_be_updated";
 }

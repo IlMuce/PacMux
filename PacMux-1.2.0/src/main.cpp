@@ -1,11 +1,19 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
-#include <Windows.h> // Per gestione path e messaggi di errore
+#ifdef _WIN32
+#include <windows.h> // Per gestione path e messaggi di errore su Windows
+#else
+#include <unistd.h>
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
+#endif
 #include <filesystem>
 #include <vector>
 #include <memory>
 #include <string>
 #include <iostream>  // Per il log di debug
+#include <cstdlib>   // getenv, atoi
 #include <cstdint>   // Per std::uint32_t
 #include <cctype>    // Per std::isalnum, std::toupper
 #include <random>    // Per RNG spawn frutti casuali
@@ -24,6 +32,46 @@
 #include "Pinky.hpp"
 #include "Inky.hpp"
 #include "Clyde.hpp"
+
+// Helper cross-platform: directory dell'eseguibile e messaggi di errore
+namespace {
+    std::filesystem::path getExecutableDir() {
+#ifdef _WIN32
+        char buf[MAX_PATH];
+        DWORD len = GetModuleFileNameA(NULL, buf, MAX_PATH);
+        if (len == 0 || len == MAX_PATH) {
+            return std::filesystem::current_path();
+        }
+        return std::filesystem::path(buf).parent_path();
+#elif defined(__APPLE__)
+        uint32_t size = 0;
+        _NSGetExecutablePath(nullptr, &size);
+        std::string buf(size, '\0');
+        if (_NSGetExecutablePath(buf.data(), &size) == 0) {
+            return std::filesystem::path(buf.c_str()).parent_path();
+        }
+        return std::filesystem::current_path();
+#elif defined(__linux__)
+        char buf[4096];
+        ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+        if (len > 0) {
+            buf[len] = '\0';
+            return std::filesystem::path(buf).parent_path();
+        }
+        return std::filesystem::current_path();
+#else
+        return std::filesystem::current_path();
+#endif
+    }
+
+    inline void showErrorDialog(const std::string &title, const std::string &message) {
+#ifdef _WIN32
+        MessageBoxA(NULL, message.c_str(), title.c_str(), MB_OK | MB_ICONERROR);
+#else
+        std::cerr << "[" << title << "] " << message << std::endl;
+#endif
+    }
+}
 
 // Utility: mostra un messaggio grafico e attende INVIO (compatibile SFML 3)
 void showMessage(sf::RenderWindow &window, const std::string &message, const std::string &fontPath)
@@ -382,9 +430,7 @@ int main()
     namespace fs = std::filesystem;
 
     // Recupera la cartella dell'eseguibile e degli asset
-    char buf[MAX_PATH];
-    GetModuleFileNameA(NULL, buf, MAX_PATH);
-    fs::path exeDir = fs::path(buf).parent_path();
+    fs::path exeDir = getExecutableDir();
     fs::path assets = exeDir / "assets";
     fs::path mapPath = assets / "map1.txt";
     fs::path fontPath = assets / "pacman.ttf";
@@ -393,14 +439,12 @@ int main()
     // Verifica la presenza degli asset fondamentali
     if (!fs::exists(mapPath))
     {
-        MessageBoxA(NULL, ("Mappa non trovata:\n" + mapPath.string()).c_str(),
-                    "Errore Pacman", MB_OK | MB_ICONERROR);
+        showErrorDialog("Errore Pacman", "Mappa non trovata:\n" + mapPath.string());
         return EXIT_FAILURE;
     }
     if (!fs::exists(fontPath))
     {
-        MessageBoxA(NULL, ("Font non trovato:\n" + fontPath.string()).c_str(),
-                    "Errore Pacman", MB_OK | MB_ICONERROR);
+        showErrorDialog("Errore Pacman", "Font non trovato:\n" + fontPath.string());
         return EXIT_FAILURE;
     }
 
@@ -409,8 +453,7 @@ int main()
     TileMap map;
     if (!map.load(mapPath.string(), tileSize))
     {
-        MessageBoxA(NULL, ("Errore caricamento mappa:\n" + mapPath.string()).c_str(),
-                    "Errore Pacman", MB_OK | MB_ICONERROR);
+        showErrorDialog("Errore Pacman", "Errore caricamento mappa:\n" + mapPath.string());
         return EXIT_FAILURE;
     }
     auto mapSz = map.getSize();
@@ -473,7 +516,7 @@ int main()
     }
     catch (const std::exception &e)
     {
-        MessageBoxA(NULL, e.what(), "Errore Pacman", MB_OK | MB_ICONERROR);
+        showErrorDialog("Errore Pacman", e.what());
         return EXIT_FAILURE;
     }
 
@@ -484,6 +527,19 @@ int main()
         std::cerr << "[AUDIO] Errore caricamento musica di sottofondo!\n";
     }
     music.setLooping(false); // SFML 3: musica suona una volta sola
+    // Master volume globale (0-100), configurabile via env PACMUX_VOLUME
+    float masterVolume = 40.f;
+    if (const char* mv = std::getenv("PACMUX_VOLUME")) {
+        try {
+            int v = std::clamp(std::atoi(mv), 0, 100);
+            masterVolume = static_cast<float>(v);
+        } catch (...) {
+            // ignora parsing errors, usa default
+        }
+    }
+    // Imposta il volume globale per tutti i suoni/musiche e abbassa la musica
+    sf::Listener::setGlobalVolume(masterVolume);
+    music.setVolume(std::min(masterVolume * 0.8f, 100.0f));
     // NON avviare la musica qui - sarà avviata quando inizia il gameplay
 
     sf::SoundBuffer bufChomp, bufChompMenu, bufEatGhost, bufDeath, bufMenu, bufGhostBlue, bufGhostReturn, bufGhostNormal;
@@ -542,14 +598,14 @@ int main()
     sfxGhostReturn.setLooping(true); // Anche il suono di ritorno alla casa in loop
 
     // === CONTROLLO VOLUME AUDIO ===
-    sfxChomp.setVolume(45.f);       // Riduci volume chomp (0-100)
-    sfxChompMenu.setVolume(35.f);   // Volume per navigazione menu
-    sfxGhostNormal.setVolume(15.f); // Volume molto ridotto fantasmi
-    sfxGhostReturn.setVolume(20.f); // Volume ridotto per ritorno
-    sfxGhostBlue.setVolume(65.f);   // Volume normale per effetti speciali
-    sfxEatGhost.setVolume(70.f);
-    sfxDeath.setVolume(75.f);
-    sfxMenu.setVolume(55.f); // Volume musica di sottofondo
+    sfxChomp.setVolume(35.f);       // Riduci volume chomp (0-100)
+    sfxChompMenu.setVolume(30.f);   // Volume per navigazione menu
+    sfxGhostNormal.setVolume(12.f); // Volume molto ridotto fantasmi
+    sfxGhostReturn.setVolume(18.f); // Volume ridotto per ritorno
+    sfxGhostBlue.setVolume(55.f);   // Volume per effetti speciali
+    sfxEatGhost.setVolume(55.f);
+    sfxDeath.setVolume(55.f);
+    sfxMenu.setVolume(40.f); // Volume suono menu
 
     // Flag per controllare se la musica è già stata avviata
     bool musicStarted = false;
@@ -691,7 +747,7 @@ int main()
         mapPath = assets / mapFiles[levelIdx];
         if (!map.load(mapPath.string(), tileSize))
         {
-            MessageBoxA(NULL, ("Mappa non trovata:\n" + mapPath.string()).c_str(), "Errore Pacman", MB_OK | MB_ICONERROR);
+            showErrorDialog("Errore Pacman", "Mappa non trovata:\n" + mapPath.string());
             exit(EXIT_FAILURE);
         }
         mapSz = map.getSize();
@@ -908,7 +964,7 @@ int main()
                         chompActive = false;
                         chompSoundStarted = false;
                         sfxChomp.stop();
-                        sfxChomp.setVolume(60.f); // Reset volume per il prossimo uso
+                        sfxChomp.setVolume(35.f); // Reset volume per il prossimo uso
                         sfxGhostNormal.stop();
                         sfxGhostReturn.stop();
 
@@ -1683,14 +1739,14 @@ int main()
                 {
                     chompSoundStarted = true;
                     sfxChomp.stop(); // Forza il reset
-                    sfxChomp.setVolume(60.f);
+                    sfxChomp.setVolume(35.f);
                     sfxChomp.play(); // Inizia il loop continuo una volta sola
                 }
                 // Rendi il chomp udibile
                 if (!chompActive)
                 {
                     chompActive = true;
-                    sfxChomp.setVolume(60.f); // Volume normale quando si mangiano pellet
+                    sfxChomp.setVolume(35.f); // Volume normale quando si mangiano pellet
                 }
                 lastPelletTimer.restart(); // Reset timer quando si mangia un pellet
             }
@@ -1943,7 +1999,7 @@ int main()
                     chompActive = false;
                     chompSoundStarted = false;
                     sfxChomp.stop();
-                    sfxChomp.setVolume(60.f); // Reset volume per il prossimo uso
+                    sfxChomp.setVolume(35.f); // Reset volume per il prossimo uso
                     gameOver = true;
                     deathSequenceActive = false; // fine sequenza dopo gestione vita persa
                 }

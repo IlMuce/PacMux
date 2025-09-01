@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [TentativoCorrezioneRelease12]
+  pull_request:
+    branches: [main]
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: ${{ matrix.platform.name }} ${{ matrix.config.name }}
+    runs-on: ${{ matrix.platform.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+        - { name: Windows VS2022, os: windows-2022  }
+        - { name: Windows VS2025, os: windows-2025  }
+        - { name: Linux GCC,      os: ubuntu-latest }
+        - { name: Linux Clang,    os: ubuntu-latest, flags: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ }
+        - { name: macOS,          os: macos-14  }
+        config:
+        - { name: Shared, flags: -DBUILD_SHARED_LIBS=TRUE }
+        - { name: Static, flags: -DBUILD_SHARED_LIBS=FALSE }
+
+    steps:
+      - name: Install Linux Dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libxrandr-dev libxcursor-dev libxi-dev libudev-dev libflac-dev libvorbis-dev libgl1-mesa-dev libegl1-mesa-dev libfreetype-dev xvfb
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -B build ${{matrix.platform.flags}} ${{matrix.config.flags}}
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Prepare runtime assets (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p build/assets
+          cp -r assets/* build/assets/
+
+      - name: Smoke run (Linux, 5s)
+        if: runner.os == 'Linux'
+        working-directory: build
+        run: |
+          xvfb-run -a bash -lc 'timeout 5s ./PacmanR12 || [ $? -eq 124 ]'
+
+      - name: Prepare runtime assets (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "build/Release/assets" | Out-Null
+          Copy-Item -Recurse -Force assets/* "build/Release/assets/"
+
+      - name: Smoke run (Windows, 5s)
+        if: runner.os == 'Windows'
+        working-directory: build/Release
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath .\PacmanR12.exe -PassThru
+          Start-Sleep -Seconds 5
+          if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+          exit 0
+
+      - name: Prepare runtime assets (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p build/assets
+          cp -r assets/* build/assets/
+
+      - name: Smoke run (macOS, 5s)
+        if: runner.os == 'macOS'
+        working-directory: build
+        run: |
+          ./PacmanR12 & pid=$!; sleep 5; kill $pid || true

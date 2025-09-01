@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [ConsegnaProgettoCorretto]
+  pull_request:
+    branches: [main]
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  superbuild:
+    name: ${{ matrix.platform.name }} ${{ matrix.config.name }}
+    runs-on: ${{ matrix.platform.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+        - { name: Windows VS2022, os: windows-2022 }
+        - { name: Linux GCC,      os: ubuntu-latest }
+        - { name: Linux Clang,    os: ubuntu-latest, flags: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ }
+        - { name: macOS,          os: macos-14 }
+        config:
+        - { name: Shared, flags: -DBUILD_SHARED_LIBS=TRUE }
+        - { name: Static, flags: -DBUILD_SHARED_LIBS=FALSE }
+
+    steps:
+      - name: Install Linux Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxrandr-dev libxcursor-dev libxi-dev libudev-dev \
+            libflac-dev libvorbis-dev libgl1-mesa-dev libegl1-mesa-dev libfreetype-dev \
+            xvfb
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure superbuild
+        run: cmake -B build ${{ matrix.platform.flags }} ${{ matrix.config.flags }}
+
+      - name: Build all releases
+        run: cmake --build build --config Release --parallel
+
+      - name: Smoke run 1.2.0 (Linux, 5s)
+        if: runner.os == 'Linux'
+        working-directory: build/PacMux-1.2.0-build
+        run: |
+          mkdir -p assets && cp -r ../../PacMux-1.2.0/assets/* assets/
+          if [ -f PacmanR12 ]; then xvfb-run -a bash -lc 'timeout 5s ./PacmanR12 || [ $? -eq 124 ]'; fi
+
+      - name: Smoke run 1.2.0 (Windows, 5s)
+        if: runner.os == 'Windows'
+        working-directory: build/PacMux-1.2.0-build/Release
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path assets | Out-Null
+          Copy-Item -Recurse -Force ../../PacMux-1.2.0/assets/* assets/
+          if (Test-Path .\PacmanR12.exe) {
+            $p = Start-Process -FilePath .\PacmanR12.exe -PassThru
+            Start-Sleep -Seconds 5
+            if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+          }
+          exit 0
+
+      - name: Smoke run 1.2.0 (macOS, 5s)
+        if: runner.os == 'macOS'
+        working-directory: build/PacMux-1.2.0-build
+        run: |
+          mkdir -p assets && cp -r ../../PacMux-1.2.0/assets/* assets/
+          if [ -f PacmanR12 ]; then ./PacmanR12 & pid=$!; sleep 5; kill $pid || true; fi

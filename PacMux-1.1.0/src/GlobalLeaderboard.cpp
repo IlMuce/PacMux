@@ -7,6 +7,7 @@
 #include <ctime>
 #include <iomanip>
 #include <algorithm>
+#include <cstdlib> // for std::getenv
 
 // GitHub Raw Files configuration with secondary account
 // Setup automatico:

@@ -1,6 +1,5 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
-#include <Windows.h>          // Per gestione path e messaggi di errore
 #include <filesystem>
 #include <vector>
 #include <memory>
@@ -8,6 +7,19 @@
 #include <iostream>          // Per il log di debug
 #include <cstdint>           // Per std::uint32_t
 #include <cctype>            // Per std::isalnum, std::toupper
+#include <algorithm>         // Per std::max, std::min, std::find_if
+#include <cmath>             // Per std::pow, std::abs, std::sin
+
+// --- Helpers cross-platform per path eseguibile e messaggi di errore ---
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <unistd.h>
+#include <limits.h>
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
+#endif
 
 #include "TileMap.hpp"
 #include "Player.hpp"
@@ -18,6 +30,51 @@
 #include "Pinky.hpp"
 #include "Inky.hpp"
 #include "Clyde.hpp"
+
+// Restituisce la cartella dell'eseguibile in modo portabile
+static std::filesystem::path getExecutableDir() {
+    namespace fs = std::filesystem;
+#if defined(_WIN32)
+    char buf[MAX_PATH];
+    DWORD len = GetModuleFileNameA(nullptr, buf, MAX_PATH);
+    if (len == 0 || len >= MAX_PATH) return fs::current_path();
+    return fs::path(buf).parent_path();
+#elif defined(__APPLE__)
+    uint32_t size = 0;
+    _NSGetExecutablePath(nullptr, &size);
+    std::string path;
+    path.resize(size);
+    if (_NSGetExecutablePath(path.data(), &size) == 0) {
+        return fs::path(path).parent_path();
+    }
+    return fs::current_path();
+#else // Linux/Unix
+    char buf[PATH_MAX];
+    ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+    if (len > 0) {
+        buf[len] = '\0';
+        return fs::path(buf).parent_path();
+    }
+    return fs::current_path();
+#endif
+}
+
+// Mostra un messaggio d'errore: su Windows usa MessageBoxA, altrove stampa su stderr
+static void showErrorDialog(const std::string& title, const std::string& message) {
+#if defined(_WIN32)
+    MessageBoxA(nullptr, message.c_str(), title.c_str(), MB_OK | MB_ICONERROR);
+#else
+    std::cerr << title << ": " << message << std::endl;
+#endif
+}
+
+static void showInfoDialog(const std::string& title, const std::string& message) {
+#if defined(_WIN32)
+    MessageBoxA(nullptr, message.c_str(), title.c_str(), MB_OK | MB_ICONINFORMATION);
+#else
+    std::cout << title << ": " << message << std::endl;
+#endif
+}
 
 // Utility: mostra un messaggio grafico e attende INVIO (compatibile SFML 3)
 void showMessage(sf::RenderWindow& window, const std::string& message, const std::string& fontPath) {
@@ -181,9 +238,7 @@ int main()
     namespace fs = std::filesystem;
 
     // Recupera la cartella dell'eseguibile e degli asset
-    char buf[MAX_PATH];
-    GetModuleFileNameA(NULL, buf, MAX_PATH);
-    fs::path exeDir = fs::path(buf).parent_path();
+    fs::path exeDir = getExecutableDir();
     fs::path assets = exeDir / "assets";
     fs::path mapPath = assets / "map1.txt";
     fs::path fontPath = assets / "pacman.ttf";
@@ -191,13 +246,11 @@ int main()
 
     // Verifica la presenza degli asset fondamentali
     if (!fs::exists(mapPath)) {
-        MessageBoxA(NULL, ("Mappa non trovata:\n" + mapPath.string()).c_str(),
-                    "Errore Pacman", MB_OK|MB_ICONERROR);
+        showErrorDialog("Errore Pacman", "Mappa non trovata:\n" + mapPath.string());
         return EXIT_FAILURE;
     }
     if (!fs::exists(fontPath)) {
-        MessageBoxA(NULL, ("Font non trovato:\n" + fontPath.string()).c_str(),
-                    "Errore Pacman", MB_OK|MB_ICONERROR);
+        showErrorDialog("Errore Pacman", "Font non trovato:\n" + fontPath.string());
         return EXIT_FAILURE;
     }
 
@@ -205,8 +258,7 @@ int main()
     const sf::Vector2u tileSize{32,32};
     TileMap map;
     if (!map.load(mapPath.string(), tileSize)) {
-        MessageBoxA(NULL, ("Errore caricamento mappa:\n"+mapPath.string()).c_str(),
-                    "Errore Pacman", MB_OK|MB_ICONERROR);
+    showErrorDialog("Errore Pacman", "Errore caricamento mappa:\n" + mapPath.string());
         return EXIT_FAILURE;
     }
     auto mapSz = map.getSize();
@@ -259,7 +311,7 @@ int main()
         highScore->loadFromFile(highscorePath.string());
         
     } catch (const std::exception& e) {
-        MessageBoxA(NULL, e.what(), "Errore Pacman", MB_OK|MB_ICONERROR);
+    showErrorDialog("Errore Pacman", e.what());
         return EXIT_FAILURE;
     }
 
@@ -435,13 +487,13 @@ int main()
     
     auto loadLevel = [&](int levelIdx, bool resetPellets = true) {
         if (levelIdx >= (int)mapFiles.size()) {
-            MessageBoxA(NULL, "Hai completato tutti i livelli! Congratulazioni!", "Game Completed", MB_OK|MB_ICONINFORMATION);
+            showInfoDialog("Game Completed", "Hai completato tutti i livelli! Congratulazioni!");
             currentLevel = 0;
             levelIdx = 0;
         }
         mapPath = assets / mapFiles[levelIdx];
         if (!map.load(mapPath.string(), tileSize)) {
-            MessageBoxA(NULL, ("Mappa non trovata:\n" + mapPath.string()).c_str(), "Errore Pacman", MB_OK|MB_ICONERROR);
+            showErrorDialog("Errore Pacman", "Mappa non trovata:\n" + mapPath.string());
             exit(EXIT_FAILURE);
         }
         mapSz = map.getSize();

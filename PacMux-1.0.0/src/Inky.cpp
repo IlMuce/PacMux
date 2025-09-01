@@ -1,6 +1,7 @@
 #include "Inky.hpp"
 #include "Ghost.hpp"
 #include <cmath>
+#include <algorithm>
 #include <iostream>
 
 // Inky: targeting collaborativo (Blinky + Pac-Man)

@@ -6,6 +6,8 @@
 #include <iostream>          // Per il log di debug
 #include <array>
 #include <cstdint>
+#include <algorithm>        // std::find_if, std::max
+#include <cmath>            // std::pow, std::abs (float overloads)
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

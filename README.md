@@ -10,27 +10,40 @@ Questo repository contiene una versione base funzionante di un clone di Pac-Man 
 Questo branch è dedicato esclusivamente alla consegna del progetto del corso di Fondamenti di Computer Grafica. Raccoglie TUTTE le release sviluppate (PacMux-0.1.0 → 1.2.0) in cartelle separate per mostrare l'evoluzione del lavoro.
 
 Il CMake di radice non compila un solo gioco, ma funge da superbuild che:
-- scarica e configura automaticamente SFML 3.0.1 tramite FetchContent (non serve installare SFML a parte);
+- scarica e configura automaticamente SFML 3.0.1 (non serve installarla a parte);
 - configura/compila ogni cartella PacMux-<version> come progetto indipendente (niente conflitti di target);
 - lascia gli eseguibili dentro build/… con la cartella assets copiata accanto all'exe.
 
-Come compilare con il superbuild
-- Configurazione unica del workspace:
-    - cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+Come compilare con il superbuild (multi‑compilatore)
+- Configurazione del workspace (scegli in base a OS/compilatore):
+        - Windows (MSVC/Visual Studio):
+            - cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+        - Windows (ClangCL con VS):
+            - cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -T ClangCL
+        - Linux (GCC):
+            - cmake -S . -B build -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release
+        - Linux (Clang):
+            - cmake -S . -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release
+        - macOS (AppleClang di Xcode):
+            - cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 - Compilare tutte le release in una volta:
-    - cmake --build build --config Release --target ALL_BUILD -j 8
+        - Generatore multi‑config (Visual Studio/Xcode):
+            - cmake --build build --config Release --target ALL_BUILD -j 8
+        - Generatore single‑config (Ninja/Unix Makefiles):
+            - cmake --build build -j 8
 - Compilare una singola release (esempi):
-    - cmake --build build --config Release --target PacMux_0_9_0
-    - cmake --build build --config Release --target PacMux_1_2_0
+        - cmake --build build --config Release --target PacMux_0_9_0
+        - cmake --build build --config Release --target PacMux_1_2_0
 
 Dove trovare gli eseguibili (Release)
-- build/PacMux-<versione>-build/PacmanR<versione>.exe
+- build/PacMux-<versione>-build/[Release|]/PacmanR<NN>
 
 ## Requisiti
 
-- Windows 10/11
-- Visual Studio Build Tools 2022
-- SFML 3.0.0 (viene fetchata automaticamente dal CMake in questo branch; non è necessaria un'installazione manuale)
+- Windows 10/11 con Visual Studio 2022 (oppure ClangCL)
+- oppure Linux con GCC/Clang
+- oppure macOS con AppleClang (Xcode)
+- SFML 3.0.1 (scaricata/gestita automaticamente dal superbuild; non serve installazione manuale)
 
 ## Come compilare
 
@@ -43,10 +56,13 @@ cmake --build . --config Release
 L’eseguibile verrà generato in `build/PacmanR12.exe` e dovrà essere eseguito da lì affinché trovi la cartella `assets` al suo fianco.
 
 Oppure da VS Code (Command Palette):
-- Ctrl+Shift+P → "CMake: Select a Kit" → scegli Visual Studio 2022 x64.
-- Ctrl+Shift+P → "CMake: Configure".
-- Barra di stato: seleziona Configurazione "Release".
-- Ctrl+Shift+P → "CMake: Build".
+- Ctrl+Shift+P → "CMake: Select a Kit" → scegli il compilatore/SDK desiderato:
+    - Windows: "Visual Studio 2022 Release - x64" oppure "ClangCL for MSVC 2022".
+    - Linux: "GCC" o "Clang" disponibili sul sistema.
+    - macOS: "AppleClang".
+- Ctrl+Shift+P → "CMake: Configure" (imposta eventualmente `Release` come configurazione).
+- Dalla barra di stato seleziona "Release".
+- Ctrl+Shift+P → "CMake: Build" (oppure usa il pulsante Build nella barra di stato).
 
 ## Come si gioca
 

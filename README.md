@@ -30,12 +30,12 @@ Come compilare con il superbuild (multi‑compilatore)
 
     Linux (GCC)
     ```bash
-    cmake -S . -B build -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release
+    cmake -S . -B build -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release
     ```
 
     Linux (Clang)
     ```bash
-    cmake -S . -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release
+    cmake -S . -B build -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release
     ```
 
     macOS (AppleClang di Xcode)
@@ -47,8 +47,9 @@ Come compilare con il superbuild (multi‑compilatore)
 
     Generatore multi‑config (Visual Studio/Xcode)
     ```powershell
-    cmake --build build --config Release --target ALL_BUILD
+    cmake --build build --config Release --target all
     ```
+    Oppure "ALL_BUILD "al posto di "all"
 
     Generatore single‑config (Ninja/Unix Makefiles)
     ```bash
@@ -72,8 +73,8 @@ Come compilare con il superbuild (multi‑compilatore)
     cmake --build build --target PacMux_1_2_0 -j
     ```
 
-Dove trovare gli eseguibili (Release)
-- build/PacMux-<versione>-build/[Release|]/PacmanR<NN>
+Dove trovare gli eseguibili per ogni Release
+- ~/build/PacMux-(versione)-build/PacmanR(versione)
 
 ## Requisiti
 

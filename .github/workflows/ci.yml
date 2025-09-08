@@ -190,21 +190,33 @@ jobs:
           if [ $fail -ne 0 ]; then echo "Executables mancanti nelle versioni legacy"; exit 1; fi
 
       - name: macOS dylib presence check
-        if: runner.os == 'macOS'
+        # Solo build condivise. Accetta sia filename con sola major (.3.dylib) sia full version (.3.X.Y.dylib) sia senza suffisso.
+        if: runner.os == 'macOS' && matrix.config.name == 'Shared'
         run: |
           set -e
           versions=("0.1.0" "0.4.0" "0.8.0" "1.0.0")
           exes=(PacmanR1 PacmanR4 PacmanR8 PacmanR10)
           missing=0
-            for i in "${!versions[@]}"; do
-              dir="build/PacMux-${versions[$i]}-build"
-              exe="$dir/${exes[$i]}"
-              if [ -f "$exe" ]; then
-                for lib in libsfml-graphics.3.dylib libsfml-window.3.dylib libsfml-system.3.dylib; do
-                  if [ ! -f "$dir/$lib" ]; then echo "Manca $lib accanto a ${exes[$i]}"; missing=1; fi
-                done
+          for i in "${!versions[@]}"; do
+            dir="build/PacMux-${versions[$i]}-build"
+            exe="$dir/${exes[$i]}"
+            [ -f "$exe" ] || continue
+            for base in graphics window system; do
+              found=0
+              for candidate in \
+                "$dir/libsfml-${base}.3.dylib" \
+                $dir/libsfml-${base}.3.*.dylib \
+                "$dir/libsfml-${base}.dylib"; do
+                  if [ -f "$candidate" ]; then found=1; break; fi
+              done
+              if [ $found -eq 0 ]; then
+                echo "Manca libsfml-${base}(.3|.3.*|.dylib) accanto a ${exes[$i]}"
+                missing=1
+              else
+                echo "OK libsfml-${base} per ${exes[$i]}"
               fi
             done
+          done
           if [ $missing -ne 0 ]; then echo "Errore: mancano dylib in alcune cartelle"; exit 1; fi
 
       - name: macOS strict run (no DYLD_LIBRARY_PATH, capture libs)

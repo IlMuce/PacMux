@@ -230,6 +230,41 @@ jobs:
           done
           if [ $missing -ne 0 ]; then echo "Errore: mancano dylib in alcune cartelle"; exit 1; fi
 
+      - name: macOS relocation test (subset)
+        if: runner.os == 'macOS' && matrix.config.name == 'Shared'
+        run: |
+          set -e
+          versions=("0.1.0" "1.0.0" "1.2.0")
+          exes=(PacmanR1 PacmanR10 PacmanR12)
+          fail=0
+          mkdir -p reloc_tests
+          for i in "${!versions[@]}"; do
+            v=${versions[$i]}
+            exe_name=${exes[$i]}
+            src_dir="build/PacMux-$v-build"
+            exe_src="$src_dir/$exe_name"
+            if [ ! -f "$exe_src" ]; then echo "SKIP relocation $v (exe mancante)"; continue; fi
+            dest="reloc_tests/$v"
+            mkdir -p "$dest/assets"
+            cp "$exe_src" "$dest/" || fail=1
+            cp -R "PacMux-$v/assets/." "$dest/assets/" 2>/dev/null || true
+            # Copia eventuali dylib SFML già presenti accanto all'eseguibile
+            cp $src_dir/libsfml-*.dylib "$dest/" 2>/dev/null || true
+            echo "-- Relocation run $v --"
+            pushd "$dest" >/dev/null
+            set +e
+            ( DYLD_LIBRARY_PATH="" ./$(basename "$exe_src") & pid=$!; sleep 2; if kill -0 $pid 2>/dev/null; then kill $pid; rc=124; else rc=0; fi; exit $rc )
+            rc=$?
+            set -e
+            popd >/dev/null
+            if [ $rc -eq 124 ]; then
+              echo "OK relocation $v"
+            else
+              echo "FAIL relocation $v (rc=$rc)"; fail=1
+            fi
+          done
+          if [ $fail -ne 0 ]; then echo "Relocation test fallito"; exit 1; fi
+
       - name: macOS strict run (no DYLD_LIBRARY_PATH, capture libs)
         # Per build statiche l'output DYLD_PRINT_LIBRARIES non includerà le dylib SFML; accettiamo comunque il run
         if: runner.os == 'macOS'

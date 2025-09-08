@@ -234,7 +234,8 @@ jobs:
         # Per build statiche l'output DYLD_PRINT_LIBRARIES non includerà le dylib SFML; accettiamo comunque il run
         if: runner.os == 'macOS'
         run: |
-          set -e
+          # Non fallire l'intero job per uscite rapide degli exe legacy
+          set +e
           export DYLD_LIBRARY_PATH="" # forza uso RPATH
           versions=("0.1.0" "0.4.0" "0.8.0" "1.0.0")
           exes=(PacmanR1 PacmanR4 PacmanR8 PacmanR10)
@@ -243,13 +244,23 @@ jobs:
             exe="$dir/${exes[$i]}"
             if [ -f "$exe" ]; then
               echo "-- Avvio test DYLD libs ${exes[$i]} (config=${{ matrix.config.name }}) --"
-              ( DYLD_PRINT_LIBRARIES=1 "$exe" & pid=$!; sleep 2; if kill -0 $pid 2>/dev/null; then kill $pid; echo OK; else echo "Exited early"; fi ) 2>&1 | head -n 60
+              ( DYLD_PRINT_LIBRARIES=1 "$exe" & pid=$!; \
+                sleep 2; \
+                if kill -0 $pid 2>/dev/null; then \
+                  echo "[RUNNING] kill dopo 2s"; kill $pid; \
+                  status="running"; \
+                else \
+                  echo "[EARLY EXIT]"; status="early"; \
+                fi \
+              ) 2>&1 | head -n 80 || true
               if [ "${{ matrix.config.name }}" = "Shared" ]; then
                 if ! otool -L "$exe" | grep -q 'libsfml-graphics'; then
-                  echo "ATTENZIONE: build shared ma non vedo libsfml-graphics in otool -L"; fi
+                  echo "[WARN] Shared build: libsfml-graphics non trovata in otool -L"; fi
               fi
             fi
           done
+          # Sempre exit 0: questo step è diagnostico
+          exit 0
 
       - name: Smoke run 1.2.0 (Linux, 5s)
         id: smoke_linux

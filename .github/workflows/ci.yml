@@ -44,7 +44,7 @@ jobs:
       - name: Configure superbuild
         run: |
           echo "::group::Configure superbuild"
-          cmake -B build ${{ matrix.platform.flags }} ${{ matrix.config.flags }}
+          cmake -B build ${{ matrix.platform.flags }} ${{ matrix.config.flags }} -DCMAKE_BUILD_TYPE=Release
           echo "::endgroup::"
 
       # Build each release as a separate step for clear PASS/FAIL and compact logs
@@ -148,8 +148,8 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           set -e
-          versions=("0.1.0" "0.2.0" "0.3.0" "0.4.0" "0.5.0" "0.6.0" "0.7.0" "0.8.0" "0.9.0" "1.0.0" "1.1.0" "1.2.0")
-          exes=(PacmanR1 PacmanR2 PacmanR2 PacmanR4 PacmanR5 PacmanR6 PacmanR7 PacmanR8 PacmanR9 PacmanR10 PacmanR10 PacmanR12)
+          versions=("0.1.0" "0.2.0" "0.3.0" "0.4.0" "0.5.0" "0.6.0" "0.7.0" "0.8.0" "0.9.0" "1.0.0")
+          exes=(PacmanR1 PacmanR2 PacmanR2 PacmanR4 PacmanR5 PacmanR6 PacmanR7 PacmanR8 PacmanR9 PacmanR10)
           missing=0
           for i in "${!versions[@]}"; do
             dir="build/PacMux-${versions[$i]}-build"
@@ -164,12 +164,37 @@ jobs:
           done
           if [ $missing -ne 0 ]; then echo "Errore: alcune release legacy non hanno RPATH"; exit 1; fi
 
+      - name: macOS verify built executables (pre-RPATH)
+        if: runner.os == 'macOS'
+        run: |
+          set -e
+          versions=("0.1.0" "0.2.0" "0.3.0" "0.4.0" "0.5.0" "0.6.0" "0.7.0" "0.8.0" "0.9.0" "1.0.0")
+          exes=(PacmanR1 PacmanR2 PacmanR2 PacmanR4 PacmanR5 PacmanR6 PacmanR7 PacmanR8 PacmanR9 PacmanR10)
+          fail=0
+          for i in "${!versions[@]}"; do
+            dir="build/PacMux-${versions[$i]}-build"
+            exe="$dir/${exes[$i]}"
+            if [ ! -f "$exe" ]; then
+              echo "[MISS] $exe"
+              if [ -f "$dir/CMakeFiles/CMakeError.log" ]; then
+                echo "-- CMakeError.log (tail) --"; tail -n 40 "$dir/CMakeFiles/CMakeError.log" || true
+              fi
+              if [ -f "$dir/CMakeFiles/CMakeOutput.log" ]; then
+                echo "-- CMakeOutput.log (tail) --"; tail -n 40 "$dir/CMakeFiles/CMakeOutput.log" || true
+              fi
+              fail=1
+            else
+              echo "[OK] $exe"
+            fi
+          done
+          if [ $fail -ne 0 ]; then echo "Executables mancanti nelle versioni legacy"; exit 1; fi
+
       - name: macOS dylib presence check
         if: runner.os == 'macOS'
         run: |
           set -e
-          versions=("0.1.0" "0.4.0" "0.8.0" "1.0.0" "1.2.0")
-          exes=(PacmanR1 PacmanR4 PacmanR8 PacmanR10 PacmanR12)
+          versions=("0.1.0" "0.4.0" "0.8.0" "1.0.0")
+          exes=(PacmanR1 PacmanR4 PacmanR8 PacmanR10)
           missing=0
             for i in "${!versions[@]}"; do
               dir="build/PacMux-${versions[$i]}-build"

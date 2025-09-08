@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ConsegnaProgettoCorretto]
+    branches: [CorrezionePreEsame]
   pull_request:
     branches: [main]
 
@@ -143,6 +143,60 @@ jobs:
           echo "::group::Build PacMux-1.2.0"
           cmake --build build --config Release --parallel --target PacMux_1_2_0
           echo "::endgroup::"
+
+      - name: macOS RPATH validation (pre-smoke)
+        if: runner.os == 'macOS'
+        run: |
+          set -e
+          versions=("0.1.0" "0.2.0" "0.3.0" "0.4.0" "0.5.0" "0.6.0" "0.7.0" "0.8.0" "0.9.0" "1.0.0" "1.1.0" "1.2.0")
+          exes=(PacmanR1 PacmanR2 PacmanR2 PacmanR4 PacmanR5 PacmanR6 PacmanR7 PacmanR8 PacmanR9 PacmanR10 PacmanR10 PacmanR12)
+          missing=0
+          for i in "${!versions[@]}"; do
+            dir="build/PacMux-${versions[$i]}-build"
+            exe="$dir/${exes[$i]}"
+            if [ -f "$exe" ]; then
+              if ! otool -l "$exe" | grep -A2 LC_RPATH | grep -q '@loader_path'; then
+                echo "RPATH mancante (@loader_path) in $exe"; missing=1
+              fi
+            else
+              echo "Salto: eseguibile non trovato $exe"
+            fi
+          done
+          if [ $missing -ne 0 ]; then echo "Errore: alcune release legacy non hanno RPATH"; exit 1; fi
+
+      - name: macOS dylib presence check
+        if: runner.os == 'macOS'
+        run: |
+          set -e
+          versions=("0.1.0" "0.4.0" "0.8.0" "1.0.0" "1.2.0")
+          exes=(PacmanR1 PacmanR4 PacmanR8 PacmanR10 PacmanR12)
+          missing=0
+            for i in "${!versions[@]}"; do
+              dir="build/PacMux-${versions[$i]}-build"
+              exe="$dir/${exes[$i]}"
+              if [ -f "$exe" ]; then
+                for lib in libsfml-graphics.3.dylib libsfml-window.3.dylib libsfml-system.3.dylib; do
+                  if [ ! -f "$dir/$lib" ]; then echo "Manca $lib accanto a ${exes[$i]}"; missing=1; fi
+                done
+              fi
+            done
+          if [ $missing -ne 0 ]; then echo "Errore: mancano dylib in alcune cartelle"; exit 1; fi
+
+      - name: macOS strict run (no DYLD_LIBRARY_PATH, capture libs)
+        if: runner.os == 'macOS'
+        run: |
+          set -e
+          export DYLD_LIBRARY_PATH="" # forza uso RPATH
+          versions=("0.1.0" "0.4.0" "0.8.0" "1.0.0")
+          exes=(PacmanR1 PacmanR4 PacmanR8 PacmanR10)
+          for i in "${!versions[@]}"; do
+            dir="build/PacMux-${versions[$i]}-build"
+            exe="$dir/${exes[$i]}"
+            if [ -f "$exe" ]; then
+              echo "-- Avvio test DYLD libs ${exes[$i]} --"
+              ( DYLD_PRINT_LIBRARIES=1 "$exe" & pid=$!; sleep 2; if kill -0 $pid 2>/dev/null; then kill $pid; echo OK; else echo "Exited early"; fi ) 2>&1 | head -n 40
+            fi
+          done
 
       - name: Smoke run 1.2.0 (Linux, 5s)
         id: smoke_linux

@@ -16,12 +16,44 @@ add_executable(${PROJECT_NAME}
     src/Score.cpp
 )
 
+# RPATH per macOS / Linux per trovare le librerie SFML condivise accanto all'eseguibile
+if(APPLE)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        BUILD_RPATH "@loader_path"
+        INSTALL_RPATH "@loader_path"
+    )
+elseif(UNIX)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        BUILD_RPATH "\$ORIGIN"
+        INSTALL_RPATH "\$ORIGIN"
+    )
+endif()
+
 # Copia ricorsiva della cartella assets accanto all'exe
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_SOURCE_DIR}/assets"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>/assets"
 )
+
+# Copia le dylib SFML accanto all'eseguibile (macOS) per esecuzione standalone
+if(APPLE AND BUILD_SHARED_LIBS)
+    get_target_property(_sfml_graphics_lib SFML::Graphics LOCATION)
+    if(_sfml_graphics_lib)
+        get_filename_component(_sfml_lib_dir "${_sfml_graphics_lib}" DIRECTORY)
+        set(_needed_libs
+            "${_sfml_lib_dir}/libsfml-graphics.3.dylib"
+            "${_sfml_lib_dir}/libsfml-window.3.dylib"
+            "${_sfml_lib_dir}/libsfml-system.3.dylib"
+        )
+        if(TARGET SFML::Audio)
+            list(APPEND _needed_libs "${_sfml_lib_dir}/libsfml-audio.3.dylib")
+        endif()
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${_needed_libs} $<TARGET_FILE_DIR:${PROJECT_NAME}>
+        )
+    endif()
+endif()
 
 # Su Windows, copia automaticamente le DLL dipendenti accanto all'exe in build condivisa
 if (WIN32 AND BUILD_SHARED_LIBS)

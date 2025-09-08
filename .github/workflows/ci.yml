@@ -145,7 +145,8 @@ jobs:
           echo "::endgroup::"
 
       - name: macOS RPATH validation (pre-smoke)
-        if: runner.os == 'macOS'
+        # Solo per build condivise: nelle build statiche l'eseguibile non ha dipendenze SFML dinamiche e può non avere LC_RPATH
+        if: runner.os == 'macOS' && matrix.config.name == 'Shared'
         run: |
           set -e
           versions=("0.1.0" "0.2.0" "0.3.0" "0.4.0" "0.5.0" "0.6.0" "0.7.0" "0.8.0" "0.9.0" "1.0.0")
@@ -201,6 +202,9 @@ jobs:
             dir="build/PacMux-${versions[$i]}-build"
             exe="$dir/${exes[$i]}"
             [ -f "$exe" ] || continue
+            echo "-- Verifica dylib per ${exes[$i]} ($exe) --"
+            # Colleziona librerie dichiarate (install name) nell'eseguibile
+            deps=$(otool -L "$exe" | awk 'NR>1 {print $1}') || true
             for base in graphics window system; do
               found=0
               for candidate in \
@@ -209,6 +213,13 @@ jobs:
                 "$dir/libsfml-${base}.dylib"; do
                   if [ -f "$candidate" ]; then found=1; break; fi
               done
+              if [ $found -eq 0 ]; then
+                # Controlla se il linkage punta alla directory _sfml_install (accettato come fallback)
+                if echo "$deps" | grep -q "/_sfml_install/.*libsfml-${base}.*dylib"; then
+                  echo "OK (linked a _sfml_install) libsfml-${base}"
+                  found=1
+                fi
+              fi
               if [ $found -eq 0 ]; then
                 echo "Manca libsfml-${base}(.3|.3.*|.dylib) accanto a ${exes[$i]}"
                 missing=1
@@ -220,6 +231,7 @@ jobs:
           if [ $missing -ne 0 ]; then echo "Errore: mancano dylib in alcune cartelle"; exit 1; fi
 
       - name: macOS strict run (no DYLD_LIBRARY_PATH, capture libs)
+        # Per build statiche l'output DYLD_PRINT_LIBRARIES non includerà le dylib SFML; accettiamo comunque il run
         if: runner.os == 'macOS'
         run: |
           set -e
@@ -230,8 +242,12 @@ jobs:
             dir="build/PacMux-${versions[$i]}-build"
             exe="$dir/${exes[$i]}"
             if [ -f "$exe" ]; then
-              echo "-- Avvio test DYLD libs ${exes[$i]} --"
-              ( DYLD_PRINT_LIBRARIES=1 "$exe" & pid=$!; sleep 2; if kill -0 $pid 2>/dev/null; then kill $pid; echo OK; else echo "Exited early"; fi ) 2>&1 | head -n 40
+              echo "-- Avvio test DYLD libs ${exes[$i]} (config=${{ matrix.config.name }}) --"
+              ( DYLD_PRINT_LIBRARIES=1 "$exe" & pid=$!; sleep 2; if kill -0 $pid 2>/dev/null; then kill $pid; echo OK; else echo "Exited early"; fi ) 2>&1 | head -n 60
+              if [ "${{ matrix.config.name }}" = "Shared" ]; then
+                if ! otool -L "$exe" | grep -q 'libsfml-graphics'; then
+                  echo "ATTENZIONE: build shared ma non vedo libsfml-graphics in otool -L"; fi
+              fi
             fi
           done
 

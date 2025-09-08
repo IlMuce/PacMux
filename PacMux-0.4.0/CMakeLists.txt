@@ -42,17 +42,15 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 )
 
 if(APPLE AND BUILD_SHARED_LIBS)
-    get_target_property(_sfml_graphics_lib SFML::Graphics LOCATION)
-    if(_sfml_graphics_lib)
-        get_filename_component(_sfml_lib_dir "${_sfml_graphics_lib}" DIRECTORY)
-        set(_needed_libs "${_sfml_lib_dir}/libsfml-graphics.3.dylib" "${_sfml_lib_dir}/libsfml-window.3.dylib" "${_sfml_lib_dir}/libsfml-system.3.dylib")
-        if(TARGET SFML::Audio)
-            list(APPEND _needed_libs "${_sfml_lib_dir}/libsfml-audio.3.dylib")
-        endif()
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${_needed_libs} $<TARGET_FILE_DIR:${PROJECT_NAME}>
-        )
-    endif()
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:SFML::Graphics>
+            $<TARGET_FILE:SFML::Window>
+            $<TARGET_FILE:SFML::System>
+            $<$<TARGET_EXISTS:SFML::Audio>:$<TARGET_FILE:SFML::Audio>>
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>
+        COMMAND_EXPAND_LISTS
+    )
 endif()
 
 # Su Windows, copia automaticamente le DLL dipendenti accanto all'exe in build condivisa

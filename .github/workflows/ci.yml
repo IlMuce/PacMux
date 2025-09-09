@@ -195,8 +195,8 @@ jobs:
         if: runner.os == 'macOS' && matrix.config.name == 'Shared'
         run: |
           set -e
-          versions=("0.1.0" "0.4.0" "0.8.0" "1.0.0")
-          exes=(PacmanR1 PacmanR4 PacmanR8 PacmanR10)
+          versions=("0.1.0" "0.2.0" "0.3.0" "0.4.0" "0.5.0" "0.6.0" "0.7.0" "0.8.0" "0.9.0" "1.0.0")
+          exes=(PacmanR1 PacmanR2 PacmanR2 PacmanR4 PacmanR5 PacmanR6 PacmanR7 PacmanR8 PacmanR9 PacmanR10)
           missing=0
           for i in "${!versions[@]}"; do
             dir="build/PacMux-${versions[$i]}-build"
@@ -211,7 +211,7 @@ jobs:
                 "$dir/libsfml-${base}.3.dylib" \
                 $dir/libsfml-${base}.3.*.dylib \
                 "$dir/libsfml-${base}.dylib"; do
-                  if [ -f "$candidate" ]; then found=1; break; fi
+                if [ -f "$candidate" ]; then found=1; break; fi
               done
               if [ $found -eq 0 ]; then
                 # Controlla se il linkage punta alla directory _sfml_install (accettato come fallback)
@@ -230,12 +230,12 @@ jobs:
           done
           if [ $missing -ne 0 ]; then echo "Errore: mancano dylib in alcune cartelle"; exit 1; fi
 
-      - name: macOS relocation test (subset)
+      - name: macOS relocation test (legacy set)
         if: runner.os == 'macOS' && matrix.config.name == 'Shared'
         run: |
           set -e
-          versions=("0.1.0" "1.0.0" "1.2.0")
-          exes=(PacmanR1 PacmanR10 PacmanR12)
+          versions=("0.1.0" "0.2.0" "0.3.0" "0.4.0" "0.5.0" "0.6.0" "0.7.0" "0.8.0" "0.9.0" "1.0.0")
+          exes=(PacmanR1 PacmanR2 PacmanR2 PacmanR4 PacmanR5 PacmanR6 PacmanR7 PacmanR8 PacmanR9 PacmanR10)
           fail=0
           mkdir -p reloc_tests
           for i in "${!versions[@]}"; do

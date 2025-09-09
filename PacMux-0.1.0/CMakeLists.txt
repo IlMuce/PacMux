@@ -19,8 +19,12 @@ add_executable(${PROJECT_NAME}
 # RPATH per macOS / Linux per trovare le librerie SFML condivise accanto all'eseguibile
 if(APPLE)
     set_target_properties(${PROJECT_NAME} PROPERTIES
-        BUILD_RPATH "@loader_path"
-        INSTALL_RPATH "@loader_path"
+    # Usa @loader_path e aggiungi anche la cartella delle dylib SFML come fallback in build
+    BUILD_RPATH "@loader_path;$<TARGET_FILE_DIR:SFML::Graphics>"
+    INSTALL_RPATH "@loader_path"
+    BUILD_WITH_INSTALL_RPATH ON
+    INSTALL_RPATH_USE_LINK_PATH OFF
+    MACOSX_RPATH ON
     )
 elseif(UNIX)
     set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -46,6 +50,32 @@ if(APPLE AND BUILD_SHARED_LIBS)
             $<TARGET_FILE_DIR:${PROJECT_NAME}>
         COMMAND_EXPAND_LISTS
     )
+
+    # Rewire install names to use @loader_path so the app runs when relocated
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND /usr/bin/install_name_tool -change $<TARGET_FILE:SFML::Graphics> @loader_path/$<TARGET_FILE_NAME:SFML::Graphics> "$<TARGET_FILE:${PROJECT_NAME}>"
+        COMMAND /usr/bin/install_name_tool -change $<TARGET_FILE:SFML::Window>   @loader_path/$<TARGET_FILE_NAME:SFML::Window>   "$<TARGET_FILE:${PROJECT_NAME}>"
+        COMMAND /usr/bin/install_name_tool -change $<TARGET_FILE:SFML::System>   @loader_path/$<TARGET_FILE_NAME:SFML::System>   "$<TARGET_FILE:${PROJECT_NAME}>"
+        COMMAND_EXPAND_LISTS
+    )
+    if(TARGET SFML::Audio)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND /usr/bin/install_name_tool -change $<TARGET_FILE:SFML::Audio> @loader_path/$<TARGET_FILE_NAME:SFML::Audio> "$<TARGET_FILE:${PROJECT_NAME}>"
+        )
+    endif()
+
+    # Ensure copied dylibs have @loader_path ids
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND /usr/bin/install_name_tool -id @loader_path/$<TARGET_FILE_NAME:SFML::Graphics> "$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:SFML::Graphics>"
+        COMMAND /usr/bin/install_name_tool -id @loader_path/$<TARGET_FILE_NAME:SFML::Window>   "$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:SFML::Window>"
+        COMMAND /usr/bin/install_name_tool -id @loader_path/$<TARGET_FILE_NAME:SFML::System>   "$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:SFML::System>"
+        COMMAND_EXPAND_LISTS
+    )
+    if(TARGET SFML::Audio)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND /usr/bin/install_name_tool -id @loader_path/$<TARGET_FILE_NAME:SFML::Audio> "$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:SFML::Audio>"
+        )
+    endif()
 endif()
 
 # Su Windows, copia automaticamente le DLL dipendenti accanto all'exe in build condivisa

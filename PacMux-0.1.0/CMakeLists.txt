@@ -54,13 +54,21 @@ if(APPLE AND BUILD_SHARED_LIBS)
     # Rewire install names to use @loader_path so the app runs when relocated
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND /usr/bin/install_name_tool -change $<TARGET_FILE:SFML::Graphics> @loader_path/$<TARGET_FILE_NAME:SFML::Graphics> "$<TARGET_FILE:${PROJECT_NAME}>"
+        COMMAND /usr/bin/install_name_tool -change @rpath/libsfml-graphics.3.0.dylib @loader_path/$<TARGET_FILE_NAME:SFML::Graphics> "$<TARGET_FILE:${PROJECT_NAME}>"
+        COMMAND /usr/bin/install_name_tool -change @rpath/libsfml-graphics.3.dylib   @loader_path/$<TARGET_FILE_NAME:SFML::Graphics> "$<TARGET_FILE:${PROJECT_NAME}>"
         COMMAND /usr/bin/install_name_tool -change $<TARGET_FILE:SFML::Window>   @loader_path/$<TARGET_FILE_NAME:SFML::Window>   "$<TARGET_FILE:${PROJECT_NAME}>"
+        COMMAND /usr/bin/install_name_tool -change @rpath/libsfml-window.3.0.dylib   @loader_path/$<TARGET_FILE_NAME:SFML::Window>   "$<TARGET_FILE:${PROJECT_NAME}>"
+        COMMAND /usr/bin/install_name_tool -change @rpath/libsfml-window.3.dylib     @loader_path/$<TARGET_FILE_NAME:SFML::Window>   "$<TARGET_FILE:${PROJECT_NAME}>"
         COMMAND /usr/bin/install_name_tool -change $<TARGET_FILE:SFML::System>   @loader_path/$<TARGET_FILE_NAME:SFML::System>   "$<TARGET_FILE:${PROJECT_NAME}>"
+        COMMAND /usr/bin/install_name_tool -change @rpath/libsfml-system.3.0.dylib   @loader_path/$<TARGET_FILE_NAME:SFML::System>   "$<TARGET_FILE:${PROJECT_NAME}>"
+        COMMAND /usr/bin/install_name_tool -change @rpath/libsfml-system.3.dylib     @loader_path/$<TARGET_FILE_NAME:SFML::System>   "$<TARGET_FILE:${PROJECT_NAME}>"
         COMMAND_EXPAND_LISTS
     )
     if(TARGET SFML::Audio)
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND /usr/bin/install_name_tool -change $<TARGET_FILE:SFML::Audio> @loader_path/$<TARGET_FILE_NAME:SFML::Audio> "$<TARGET_FILE:${PROJECT_NAME}>"
+            COMMAND /usr/bin/install_name_tool -change @rpath/libsfml-audio.3.0.dylib   @loader_path/$<TARGET_FILE_NAME:SFML::Audio> "$<TARGET_FILE:${PROJECT_NAME}>"
+            COMMAND /usr/bin/install_name_tool -change @rpath/libsfml-audio.3.dylib     @loader_path/$<TARGET_FILE_NAME:SFML::Audio> "$<TARGET_FILE:${PROJECT_NAME}>"
         )
     endif()
 
@@ -71,9 +79,17 @@ if(APPLE AND BUILD_SHARED_LIBS)
         COMMAND /usr/bin/install_name_tool -id @loader_path/$<TARGET_FILE_NAME:SFML::System>   "$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:SFML::System>"
         COMMAND_EXPAND_LISTS
     )
+    # Also rewrite dylibs' own dependencies to use @loader_path peers
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND /usr/bin/install_name_tool -change @rpath/libsfml-system.3.0.dylib @loader_path/$<TARGET_FILE_NAME:SFML::System>   "$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:SFML::Graphics>"
+        COMMAND /usr/bin/install_name_tool -change @rpath/libsfml-window.3.0.dylib @loader_path/$<TARGET_FILE_NAME:SFML::Window>   "$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:SFML::Graphics>"
+        COMMAND /usr/bin/install_name_tool -change @rpath/libsfml-system.3.0.dylib @loader_path/$<TARGET_FILE_NAME:SFML::System>   "$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:SFML::Window>"
+        COMMAND_EXPAND_LISTS
+    )
     if(TARGET SFML::Audio)
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND /usr/bin/install_name_tool -id @loader_path/$<TARGET_FILE_NAME:SFML::Audio> "$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:SFML::Audio>"
+            COMMAND /usr/bin/install_name_tool -change @rpath/libsfml-system.3.0.dylib @loader_path/$<TARGET_FILE_NAME:SFML::System>   "$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:SFML::Audio>"
         )
     endif()
 endif()

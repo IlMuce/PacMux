@@ -4,8 +4,20 @@ project(PacmanR1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+include(FetchContent)
 if(NOT TARGET SFML::Graphics)
-    find_package(SFML 3 REQUIRED COMPONENTS Graphics Window System)
+    # Prefer an existing SFML (e.g., provided by superbuild), else fallback to FetchContent.
+    find_package(SFML 3 QUIET COMPONENTS Graphics Window System)
+    if(NOT TARGET SFML::Graphics)
+        FetchContent_Declare(SFML
+            GIT_REPOSITORY https://github.com/SFML/SFML.git
+            GIT_TAG 3.0.1
+            GIT_SHALLOW ON
+            EXCLUDE_FROM_ALL
+            SYSTEM
+        )
+        FetchContent_MakeAvailable(SFML)
+    endif()
 endif()
 
 add_executable(${PROJECT_NAME}
@@ -16,10 +28,19 @@ add_executable(${PROJECT_NAME}
     src/Score.cpp
 )
 
+# RPATH per permettere l'esecuzione diretta su macOS/Linux senza installare
+if (APPLE)
+    set(CMAKE_BUILD_RPATH_USE_ORIGIN ON)
+    set(CMAKE_INSTALL_RPATH "@loader_path")
+elseif(UNIX)
+    set(CMAKE_BUILD_RPATH_USE_ORIGIN ON)
+    set(CMAKE_INSTALL_RPATH "$ORIGIN")
+endif()
+
 # Copia ricorsiva della cartella assets accanto all'exe
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_SOURCE_DIR}/assets"
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>/assets"
 )
 
